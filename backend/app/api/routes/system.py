@@ -74,10 +74,11 @@ def upload_attachment(
 ):
     upload_root = Path(settings.upload_dir)
     upload_root.mkdir(parents=True, exist_ok=True)
-    target = upload_root / f"{object_type}_{object_id}_{file.filename}"
+    safe_filename = Path(file.filename).name
+    target = upload_root / f"{object_type}_{object_id}_{safe_filename}"
     target.write_bytes(file.file.read())
 
-    obj = Attachment(object_type=object_type, object_id=object_id, filename=file.filename, stored_path=str(target))
+    obj = Attachment(object_type=object_type, object_id=object_id, filename=safe_filename, stored_path=str(target))
     stamp_change(obj, user.username)
     db.add(obj)
     db.commit()

@@ -1,9 +1,11 @@
+from datetime import datetime, timezone
+
 from fastapi import Cookie, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.security import decode_access_token
 from app.db.session import get_db
-from app.models.entities import RoleEnum, User
+from app.models.entities import RoleEnum, SessionToken, User
 
 
 def get_current_user(
@@ -15,6 +17,16 @@ def get_current_user(
     payload = decode_access_token(session_token)
     if not payload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    active_session = (
+        db.query(SessionToken)
+        .filter(
+            SessionToken.token == session_token,
+            SessionToken.expires_at > datetime.now(timezone.utc),
+        )
+        .first()
+    )
+    if not active_session:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
     user = db.query(User).filter(User.username == payload.get("sub"), User.is_active.is_(True)).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user")

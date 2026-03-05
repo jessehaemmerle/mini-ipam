@@ -1,10 +1,12 @@
+from collections import defaultdict
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_roles
 from app.db.session import get_db
-from app.models.entities import Cable, Device, IPAddress, Interface, PowerConnection, PowerInlet, Prefix, RoleEnum, VLAN
+from app.models.entities import Cable, Device, IPAddress, Interface, PatchPort, PowerConnection, PowerInlet, Prefix, RoleEnum, VLAN
 from app.utils.ipam import ip_in_prefix, parse_cidr
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -43,17 +45,19 @@ def conflicts(db: Session = Depends(get_db), _=Depends(require_roles(RoleEnum.ad
         .having(func.count(VLAN.id) > 1)
         .all()
     )
-    port_conflicts = (
-        db.query(Cable.endpoint_a_type, Cable.endpoint_a_id, func.count(Cable.id).label("count"))
-        .filter(Cable.status == "active")
-        .group_by(Cable.endpoint_a_type, Cable.endpoint_a_id)
-        .having(func.count(Cable.id) > 1)
-        .all()
-    )
+    counts: defaultdict[tuple[str, int], int] = defaultdict(int)
+    for cable in db.query(Cable).filter(Cable.status == "active").all():
+        counts[(cable.endpoint_a_type, cable.endpoint_a_id)] += 1
+        counts[(cable.endpoint_b_type, cable.endpoint_b_id)] += 1
+    port_conflicts = [
+        {"endpoint_type": endpoint_type, "endpoint_id": endpoint_id, "count": count}
+        for (endpoint_type, endpoint_id), count in counts.items()
+        if count > 1
+    ]
     return {
         "duplicate_ips": [dict(item._mapping) for item in duplicate_ips],
         "vlan_conflicts": [dict(item._mapping) for item in vlan_conflicts],
-        "port_conflicts": [dict(item._mapping) for item in port_conflicts],
+        "port_conflicts": port_conflicts,
     }
 
 
@@ -74,11 +78,23 @@ def unassigned_interfaces(db: Session = Depends(get_db), _=Depends(require_roles
 @router.get("/cable-orphans")
 def cable_orphans(db: Session = Depends(get_db), _=Depends(require_roles(RoleEnum.admin, RoleEnum.editor, RoleEnum.readonly))):
     interfaces = {item.id for item in db.query(Interface.id).all()}
+    patch_ports = {item.id for item in db.query(PatchPort.id).all()}
     cables = db.query(Cable).all()
     orphans = []
     for cable in cables:
-        a_exists = cable.endpoint_a_type != "interface" or cable.endpoint_a_id in interfaces
-        b_exists = cable.endpoint_b_type != "interface" or cable.endpoint_b_id in interfaces
+        if cable.endpoint_a_type == "interface":
+            a_exists = cable.endpoint_a_id in interfaces
+        elif cable.endpoint_a_type == "patch_port":
+            a_exists = cable.endpoint_a_id in patch_ports
+        else:
+            a_exists = True
+
+        if cable.endpoint_b_type == "interface":
+            b_exists = cable.endpoint_b_id in interfaces
+        elif cable.endpoint_b_type == "patch_port":
+            b_exists = cable.endpoint_b_id in patch_ports
+        else:
+            b_exists = True
         if not a_exists or not b_exists:
             orphans.append(cable)
     return orphans

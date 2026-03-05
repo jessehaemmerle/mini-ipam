@@ -199,6 +199,8 @@ def create_ip(payload: IPCreate, db: Session = Depends(get_db), user=Depends(req
 def bulk_reserve(payload: BulkReserveRequest, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
     start_ip = parse_ip(payload.start_ip)
     end_ip = parse_ip(payload.end_ip)
+    if start_ip.version != end_ip.version:
+        raise HTTPException(status_code=400, detail="Mixed IP versions are not allowed")
     if int(start_ip) > int(end_ip):
         raise HTTPException(status_code=400, detail="Invalid range")
 
@@ -246,9 +248,9 @@ def create_vlan(payload: VLANCreate, db: Session = Depends(get_db), user=Depends
 @router.get("/export/{object_type}")
 def export_csv(object_type: str, db: Session = Depends(get_db), _=Depends(require_roles(RoleEnum.admin, RoleEnum.editor, RoleEnum.readonly))):
     mapping = {
-        "prefixes": (Prefix, ["cidr", "vrf_id", "site_id", "role", "status", "description"]),
-        "ipaddresses": (IPAddress, ["address", "vrf_id", "status", "dns_name", "description", "assigned_type", "assigned_id"]),
-        "vlans": (VLAN, ["vid", "name", "site_id", "status", "description"]),
+        "prefixes": (Prefix, ["cidr", "vrf", "site", "role", "status", "description"]),
+        "ipaddresses": (IPAddress, ["address", "vrf", "status", "dns_name", "description", "assigned_type", "assigned_to"]),
+        "vlans": (VLAN, ["vid", "name", "site", "status", "description"]),
     }
     if object_type not in mapping:
         raise HTTPException(status_code=404, detail="unsupported export type")
@@ -259,7 +261,39 @@ def export_csv(object_type: str, db: Session = Depends(get_db), _=Depends(requir
     writer = csv.DictWriter(stream, fieldnames=fields)
     writer.writeheader()
     for row in rows:
-        writer.writerow({field: getattr(row, field) for field in fields})
+        if object_type == "prefixes":
+            writer.writerow(
+                {
+                    "cidr": row.cidr,
+                    "vrf": row.vrf_id,
+                    "site": row.site_id,
+                    "role": row.role,
+                    "status": row.status,
+                    "description": row.description,
+                }
+            )
+        elif object_type == "ipaddresses":
+            writer.writerow(
+                {
+                    "address": row.address,
+                    "vrf": row.vrf_id,
+                    "status": row.status,
+                    "dns_name": row.dns_name,
+                    "description": row.description,
+                    "assigned_type": row.assigned_type,
+                    "assigned_to": row.assigned_id,
+                }
+            )
+        else:
+            writer.writerow(
+                {
+                    "vid": row.vid,
+                    "name": row.name,
+                    "site": row.site_id,
+                    "status": row.status,
+                    "description": row.description,
+                }
+            )
     stream.seek(0)
     return StreamingResponse(stream, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename={object_type}.csv"})
 
@@ -274,8 +308,8 @@ def import_csv(object_type: str, file: UploadFile = File(...), db: Session = Dep
         if object_type == "prefixes":
             payload = PrefixCreate(
                 cidr=row["cidr"],
-                vrf_id=int(row["vrf"]),
-                site_id=int(row["site"]) if row.get("site") else None,
+                vrf_id=int(row.get("vrf") or row.get("vrf_id")),
+                site_id=int(row.get("site") or row.get("site_id")) if (row.get("site") or row.get("site_id")) else None,
                 role=row.get("role") or "LAN",
                 status=row.get("status") or "active",
                 description=row.get("description"),
@@ -288,12 +322,12 @@ def import_csv(object_type: str, file: UploadFile = File(...), db: Session = Dep
         elif object_type == "ipaddresses":
             payload = IPCreate(
                 address=row["address"],
-                vrf_id=int(row["vrf"]),
+                vrf_id=int(row.get("vrf") or row.get("vrf_id")),
                 status=row.get("status") or "free",
                 dns_name=row.get("dns_name"),
                 description=row.get("description"),
                 assigned_type=row.get("assigned_type"),
-                assigned_id=int(row["assigned_to"]) if row.get("assigned_to") else None,
+                assigned_id=int(row.get("assigned_to") or row.get("assigned_id")) if (row.get("assigned_to") or row.get("assigned_id")) else None,
             )
             try:
                 create_ip(payload, db, user)
@@ -304,7 +338,7 @@ def import_csv(object_type: str, file: UploadFile = File(...), db: Session = Dep
             payload = VLANCreate(
                 vid=int(row["vid"]),
                 name=row["name"],
-                site_id=int(row["site"]) if row.get("site") else None,
+                site_id=int(row.get("site") or row.get("site_id")) if (row.get("site") or row.get("site_id")) else None,
                 status=row.get("status") or "active",
                 description=row.get("description"),
             )
