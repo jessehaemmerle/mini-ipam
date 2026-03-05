@@ -156,24 +156,34 @@ export function DevicesPage() {
             <option key={rack.id} value={rack.id}>{rack.name}</option>
           ))}
         </select>
-        <input
-          className="input w-24"
-          type="number"
-          min={1}
-          value={form.rack_u_start}
-          disabled={form.rack_id === ""}
-          onChange={(e) => setForm({ ...form, rack_u_start: Number(e.target.value) })}
-          placeholder="U-Start"
-        />
-        <input
-          className="input w-24"
-          type="number"
-          min={1}
-          value={form.rack_u_height}
-          disabled={form.rack_id === ""}
-          onChange={(e) => setForm({ ...form, rack_u_height: Number(e.target.value) })}
-          placeholder="Hoehe U"
-        />
+        <div className="flex flex-col">
+          <label className="muted">Position (U-Start)</label>
+          <input
+            className="input w-24"
+            type="number"
+            min={1}
+            value={form.rack_u_start}
+            disabled={form.rack_id === ""}
+            onChange={(e) => setForm({ ...form, rack_u_start: Number(e.target.value) })}
+            placeholder="z.B. 20"
+            title="Start-U im Rack, bei dem das Geraet beginnt."
+          />
+          <span className="muted">Startslot im Rack (1 = unten)</span>
+        </div>
+        <div className="flex flex-col">
+          <label className="muted">Hoehe (U)</label>
+          <input
+            className="input w-24"
+            type="number"
+            min={1}
+            value={form.rack_u_height}
+            disabled={form.rack_id === ""}
+            onChange={(e) => setForm({ ...form, rack_u_height: Number(e.target.value) })}
+            placeholder="z.B. 2"
+            title="Geraetehoehe in Rack-Units (U)."
+          />
+          <span className="muted">Anzahl belegter Rack-Units</span>
+        </div>
         <select
           className="input"
           value={form.rack_face}
