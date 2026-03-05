@@ -1,8 +1,9 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
-import { get, post } from "../api/client";
+import { extractApiError, get, post } from "../api/client";
 import { CablePathGraph } from "../components/cable/CablePathGraph";
 import { PageHeader } from "../components/common/PageHeader";
+import { Cable, EndpointOption } from "../types";
 
 type PathResult = {
   nodes: string[];
@@ -10,38 +11,141 @@ type PathResult = {
   table: { from: string; to: string; cable_id: number }[];
 };
 
+type EndpointResponse = {
+  interfaces: EndpointOption[];
+  patch_ports: EndpointOption[];
+};
+
 export function CablingPage() {
   const [path, setPath] = useState<PathResult | null>(null);
-  const [lookup, setLookup] = useState({ endpoint_type: "interface", endpoint_id: 1 });
-  const [form, setForm] = useState({ endpoint_a_type: "interface", endpoint_a_id: 1, endpoint_b_type: "patch_port", endpoint_b_id: 1, cable_type: "cat6", label: "" });
+  const [cables, setCables] = useState<Cable[]>([]);
+  const [endpointOptions, setEndpointOptions] = useState<EndpointOption[]>([]);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const [lookupKey, setLookupKey] = useState("");
+  const [form, setForm] = useState({ endpoint_a_key: "", endpoint_b_key: "", cable_type: "cat6", label: "" });
+
+  const optionByKey = useMemo(
+    () => Object.fromEntries(endpointOptions.map((item) => [`${item.type}:${item.id}`, item])),
+    [endpointOptions]
+  );
+
+  const load = async () => {
+    const [options, cableData] = await Promise.all([
+      get<EndpointResponse>("/dcim/endpoint-options"),
+      get<Cable[]>("/dcim/cables"),
+    ]);
+    const merged = [...options.interfaces, ...options.patch_ports];
+    setEndpointOptions(merged);
+    setCables(cableData);
+
+    const defaultKey = merged[0] ? `${merged[0].type}:${merged[0].id}` : "";
+    setLookupKey((prev) => prev || defaultKey);
+    setForm((prev) => ({
+      ...prev,
+      endpoint_a_key: prev.endpoint_a_key || defaultKey,
+      endpoint_b_key: prev.endpoint_b_key || (merged[1] ? `${merged[1].type}:${merged[1].id}` : defaultKey),
+    }));
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
 
   const runLookup = async () => {
-    const data = await get<PathResult>("/dcim/cable-path", lookup as unknown as Record<string, unknown>);
+    const source = optionByKey[lookupKey];
+    if (!source) return;
+    const data = await get<PathResult>("/dcim/cable-path", {
+      endpoint_type: source.type,
+      endpoint_id: source.id,
+    });
     setPath(data);
   };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    await post("/dcim/cables", { ...form, status: "active" });
-    runLookup();
+    const a = optionByKey[form.endpoint_a_key];
+    const b = optionByKey[form.endpoint_b_key];
+    if (!a || !b) return;
+    if (a.id === b.id && a.type === b.type) {
+      setError("Start- und Endpunkt duerfen nicht identisch sein.");
+      return;
+    }
+    try {
+      await post("/dcim/cables", {
+        endpoint_a_type: a.type,
+        endpoint_a_id: a.id,
+        endpoint_b_type: b.type,
+        endpoint_b_id: b.id,
+        cable_type: form.cable_type,
+        label: form.label || null,
+        status: "active",
+      });
+      setMessage("Kabel erstellt.");
+      setError("");
+      await load();
+      await runLookup();
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+      setMessage("");
+    }
   };
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Cabling" subtitle="Kabel-Liste und Path-Graph über Patchpanels" />
+      <PageHeader title="Cabling" subtitle="Kabel zwischen Interfaces und Patchports mit Path-Ansicht" />
       <form className="card flex flex-wrap items-end gap-2" onSubmit={submit}>
-        <input className="input w-28" value={form.endpoint_a_type} onChange={(e) => setForm({ ...form, endpoint_a_type: e.target.value })} />
-        <input className="input w-24" type="number" value={form.endpoint_a_id} onChange={(e) => setForm({ ...form, endpoint_a_id: Number(e.target.value) })} />
-        <input className="input w-28" value={form.endpoint_b_type} onChange={(e) => setForm({ ...form, endpoint_b_type: e.target.value })} />
-        <input className="input w-24" type="number" value={form.endpoint_b_id} onChange={(e) => setForm({ ...form, endpoint_b_id: Number(e.target.value) })} />
-        <input className="input" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="label" />
+        <div>
+          <label className="muted">Endpoint A</label>
+          <select className="input ml-2" value={form.endpoint_a_key} onChange={(e) => setForm({ ...form, endpoint_a_key: e.target.value })}>
+            {endpointOptions.map((opt) => (
+              <option key={`a-${opt.type}-${opt.id}`} value={`${opt.type}:${opt.id}`}>{opt.type}:{opt.id} - {opt.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="muted">Endpoint B</label>
+          <select className="input ml-2" value={form.endpoint_b_key} onChange={(e) => setForm({ ...form, endpoint_b_key: e.target.value })}>
+            {endpointOptions.map((opt) => (
+              <option key={`b-${opt.type}-${opt.id}`} value={`${opt.type}:${opt.id}`}>{opt.type}:{opt.id} - {opt.name}</option>
+            ))}
+          </select>
+        </div>
+        <input className="input" value={form.cable_type} onChange={(e) => setForm({ ...form, cable_type: e.target.value })} placeholder="cat6/fiber/dac" />
+        <input className="input" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="Label" />
         <button className="btn" type="submit">Create Cable</button>
       </form>
 
+      {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
+      {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
+
       <div className="card flex gap-2">
-        <input className="input w-28" value={lookup.endpoint_type} onChange={(e) => setLookup({ ...lookup, endpoint_type: e.target.value })} />
-        <input className="input w-24" type="number" value={lookup.endpoint_id} onChange={(e) => setLookup({ ...lookup, endpoint_id: Number(e.target.value) })} />
-        <button className="btn" onClick={runLookup}>Show Path</button>
+        <select className="input" value={lookupKey} onChange={(e) => setLookupKey(e.target.value)}>
+          {endpointOptions.map((opt) => (
+            <option key={`lookup-${opt.type}-${opt.id}`} value={`${opt.type}:${opt.id}`}>{opt.type}:{opt.id} - {opt.name}</option>
+          ))}
+        </select>
+        <button type="button" className="btn" onClick={() => void runLookup()}>Show Path</button>
+      </div>
+
+      <div className="card overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b text-left"><th className="p-2">ID</th><th className="p-2">A</th><th className="p-2">B</th><th className="p-2">Type</th><th className="p-2">Label</th></tr>
+          </thead>
+          <tbody>
+            {cables.map((c) => (
+              <tr key={c.id} className="border-b">
+                <td className="p-2">{c.id}</td>
+                <td className="p-2">{c.endpoint_a_type}:{c.endpoint_a_id}</td>
+                <td className="p-2">{c.endpoint_b_type}:{c.endpoint_b_id}</td>
+                <td className="p-2">{c.cable_type}</td>
+                <td className="p-2">{c.label || "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {path && (
@@ -55,4 +159,3 @@ export function CablingPage() {
     </div>
   );
 }
-

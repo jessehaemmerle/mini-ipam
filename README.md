@@ -23,7 +23,9 @@ IPAM-first Tool mit grundlegenden DCIM-Funktionen (Sites, Racks, Cabling inkl. P
 - Edit/Delete fuer Site, Rack, Device (`PUT/DELETE` Endpoints)
 - Cabling inkl. Single-Connection-Validation (mit `allow_multi` Override)
 - Cable Path Lookup (Graph Traversal + Tabellenpfad)
+- Cabling UI mit Endpoint-Dropdowns (Interfaces/Patchports), Cable-Liste und Path-Lookup
 - Power Entities: Inlets, PDU Outlets, Power Connections, Rack Power Map
+- Power UI mit Workflows fuer Inlet/Outlet-Erstellung und Inlet->Outlet-Verbindungen
 
 ### Produktive Must-Haves
 - Globale Suche über Prefix/IP/VLAN/Device/Rack/Cable

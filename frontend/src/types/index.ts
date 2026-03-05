@@ -75,6 +75,51 @@ export type Cable = {
   status: string;
 };
 
+export type Interface = {
+  id: number;
+  device_id: number;
+  name: string;
+  if_type: string;
+  speed?: string | null;
+};
+
+export type PatchPort = {
+  id: number;
+  panel_id: number;
+  position: number;
+  front_port_name: string;
+  back_port_name: string;
+};
+
+export type EndpointOption = {
+  id: number;
+  type: "interface" | "patch_port";
+  name: string;
+  device_id?: number;
+  panel_id?: number;
+};
+
+export type PowerInlet = {
+  id: number;
+  device_id: number;
+  name: string;
+  inlet_type?: string | null;
+};
+
+export type PDUOutlet = {
+  id: number;
+  pdu_device_id: number;
+  name: string;
+};
+
+export type PowerConnection = {
+  id: number;
+  src_type: string;
+  src_id: number;
+  dst_type: string;
+  dst_id: number;
+};
+
 export type PrefixDetail = {
   overview: Prefix;
   utilization: {

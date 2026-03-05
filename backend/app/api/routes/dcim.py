@@ -317,6 +317,27 @@ def create_interface(payload: InterfaceCreate, db: Session = Depends(get_db), us
     return obj
 
 
+@router.get("/endpoint-options")
+def endpoint_options(db: Session = Depends(get_db), _=Depends(require_roles(RoleEnum.admin, RoleEnum.editor, RoleEnum.readonly))):
+    interfaces = db.query(Interface).order_by(Interface.device_id.asc(), Interface.name.asc()).all()
+    patch_ports = db.query(PatchPort).order_by(PatchPort.panel_id.asc(), PatchPort.position.asc()).all()
+    return {
+        "interfaces": [
+            {"id": item.id, "type": "interface", "name": item.name, "device_id": item.device_id}
+            for item in interfaces
+        ],
+        "patch_ports": [
+            {
+                "id": item.id,
+                "type": "patch_port",
+                "name": f"{item.front_port_name}/{item.back_port_name}",
+                "panel_id": item.panel_id,
+            }
+            for item in patch_ports
+        ],
+    }
+
+
 @router.get("/patch-ports")
 def list_patch_ports(db: Session = Depends(get_db), _=Depends(require_roles(RoleEnum.admin, RoleEnum.editor, RoleEnum.readonly))):
     return db.query(PatchPort).order_by(PatchPort.panel_id.asc(), PatchPort.position.asc()).all()
@@ -517,6 +538,11 @@ def create_power_inlet(payload: PowerInletCreate, db: Session = Depends(get_db),
     return obj
 
 
+@router.get("/power/inlets")
+def list_power_inlets(db: Session = Depends(get_db), _=Depends(require_roles(RoleEnum.admin, RoleEnum.editor, RoleEnum.readonly))):
+    return db.query(PowerInlet).order_by(PowerInlet.device_id.asc(), PowerInlet.name.asc()).all()
+
+
 @router.post("/power/outlets")
 def create_pdu_outlet(payload: PDUOutletCreate, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
     obj = PDUOutlet(**payload.model_dump())
@@ -527,6 +553,11 @@ def create_pdu_outlet(payload: PDUOutletCreate, db: Session = Depends(get_db), u
     return obj
 
 
+@router.get("/power/outlets")
+def list_pdu_outlets(db: Session = Depends(get_db), _=Depends(require_roles(RoleEnum.admin, RoleEnum.editor, RoleEnum.readonly))):
+    return db.query(PDUOutlet).order_by(PDUOutlet.pdu_device_id.asc(), PDUOutlet.name.asc()).all()
+
+
 @router.post("/power/connections")
 def create_power_connection(payload: PowerConnectionCreate, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
     obj = PowerConnection(**payload.model_dump())
@@ -535,6 +566,11 @@ def create_power_connection(payload: PowerConnectionCreate, db: Session = Depend
     db.commit()
     db.refresh(obj)
     return obj
+
+
+@router.get("/power/connections")
+def list_power_connections(db: Session = Depends(get_db), _=Depends(require_roles(RoleEnum.admin, RoleEnum.editor, RoleEnum.readonly))):
+    return db.query(PowerConnection).order_by(PowerConnection.id.desc()).all()
 
 
 @router.get("/power/map/rack/{rack_id}")

@@ -18,6 +18,8 @@ export function DevicesPage() {
     rack_face: "front",
   });
   const [rackTargets, setRackTargets] = useState<Record<number, number | "">>({});
+  const [newInterfaceName, setNewInterfaceName] = useState("eth0");
+  const [newInletName, setNewInletName] = useState("PSU-A");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -127,6 +129,39 @@ export function DevicesPage() {
         setDetail(null);
       }
       setMessage("Device geloescht.");
+      setError("");
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+      setMessage("");
+    }
+  };
+
+  const addInterfaceToSelected = async () => {
+    if (!detail) return;
+    try {
+      await post("/dcim/interfaces", {
+        device_id: detail.overview.id,
+        name: newInterfaceName,
+        if_type: "copper",
+      });
+      await loadDetail(detail.overview.id);
+      setMessage("Interface hinzugefuegt.");
+      setError("");
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+      setMessage("");
+    }
+  };
+
+  const addPowerInletToSelected = async () => {
+    if (!detail) return;
+    try {
+      await post("/dcim/power/inlets", {
+        device_id: detail.overview.id,
+        name: newInletName,
+      });
+      await loadDetail(detail.overview.id);
+      setMessage("Power Inlet hinzugefuegt.");
       setError("");
     } catch (err: unknown) {
       setError(extractApiError(err));
@@ -248,15 +283,23 @@ export function DevicesPage() {
       </div>
 
       {detail && (
-        <div className="card grid gap-4 md:grid-cols-4">
-          <div><p className="muted">Interfaces</p><p className="text-xl font-semibold">{detail.interfaces.length}</p></div>
-          <div><p className="muted">IPs</p><p className="text-xl font-semibold">{detail.ips.length}</p></div>
-          <div><p className="muted">Cables</p><p className="text-xl font-semibold">{detail.cabling.length}</p></div>
-          <div>
-            <p className="muted">Power</p>
-            <p className={`text-xl font-semibold ${detail.power.has_power ? "text-brand" : "text-red-600"}`}>
-              {detail.power.has_power ? "connected" : "missing"}
-            </p>
+        <div className="card space-y-3">
+          <div className="grid gap-4 md:grid-cols-4">
+            <div><p className="muted">Interfaces</p><p className="text-xl font-semibold">{detail.interfaces.length}</p></div>
+            <div><p className="muted">IPs</p><p className="text-xl font-semibold">{detail.ips.length}</p></div>
+            <div><p className="muted">Cables</p><p className="text-xl font-semibold">{detail.cabling.length}</p></div>
+            <div>
+              <p className="muted">Power</p>
+              <p className={`text-xl font-semibold ${detail.power.has_power ? "text-brand" : "text-red-600"}`}>
+                {detail.power.has_power ? "connected" : "missing"}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <input className="input" value={newInterfaceName} onChange={(e) => setNewInterfaceName(e.target.value)} placeholder="Interface name" />
+            <button type="button" className="rounded border px-3 py-2 text-sm" onClick={() => void addInterfaceToSelected()}>Add Interface</button>
+            <input className="input" value={newInletName} onChange={(e) => setNewInletName(e.target.value)} placeholder="Power inlet name" />
+            <button type="button" className="rounded border px-3 py-2 text-sm" onClick={() => void addPowerInletToSelected()}>Add Power Inlet</button>
           </div>
         </div>
       )}
