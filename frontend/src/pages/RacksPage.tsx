@@ -21,8 +21,16 @@ export function RacksPage() {
     const activeRack = selectedRack ?? rackData[0]?.id;
     if (activeRack) {
       setSelectedRack(activeRack);
-      setPlacements(await get<RackPlacement[]>(`/dcim/rack-placements/${activeRack}`));
-      setDetail(await get<RackDetail>(`/dcim/racks/${activeRack}/detail`));
+      try {
+        setPlacements(await get<RackPlacement[]>(`/dcim/rack-placements/${activeRack}`));
+      } catch {
+        setPlacements([]);
+      }
+      try {
+        setDetail(await get<RackDetail>(`/dcim/racks/${activeRack}/detail`));
+      } catch {
+        setDetail(null);
+      }
     }
   };
 
@@ -103,8 +111,16 @@ export function RacksPage() {
           onChange={async (e) => {
             const id = Number(e.target.value);
             setSelectedRack(id);
-            setPlacements(await get<RackPlacement[]>(`/dcim/rack-placements/${id}`));
-            setDetail(await get<RackDetail>(`/dcim/racks/${id}/detail`));
+            try {
+              setPlacements(await get<RackPlacement[]>(`/dcim/rack-placements/${id}`));
+            } catch {
+              setPlacements([]);
+            }
+            try {
+              setDetail(await get<RackDetail>(`/dcim/racks/${id}/detail`));
+            } catch {
+              setDetail(null);
+            }
           }}
         >
           {racks.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
