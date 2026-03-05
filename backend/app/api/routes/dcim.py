@@ -379,8 +379,8 @@ def rack_detail(
 
     placements = db.query(RackPlacement).filter(RackPlacement.rack_id == rack.id).all()
     reserved_slots = db.query(ReservedUSlot).filter(ReservedUSlot.rack_id == rack.id).all()
-    device_ids = [p.device_id for p in placements]
-    devices = db.query(Device).filter(Device.id.in_(device_ids if device_ids else [-1])).all()
+    placement_by_device = {p.device_id: p for p in placements}
+    devices = db.query(Device).filter(Device.rack_id == rack.id).all()
 
     details = []
     for dev in devices:
@@ -409,6 +409,9 @@ def rack_detail(
                 "device_id": dev.id,
                 "name": dev.name,
                 "role": dev.role,
+                "placed": dev.id in placement_by_device,
+                "u_start": placement_by_device[dev.id].u_start if dev.id in placement_by_device else None,
+                "u_height": placement_by_device[dev.id].u_height if dev.id in placement_by_device else None,
                 "missing_cable": bool(interfaces) and not has_cable,
                 "missing_power": bool(inlet_ids) and not has_power,
             }

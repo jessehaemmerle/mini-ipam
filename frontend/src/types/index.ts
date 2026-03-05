@@ -115,6 +115,9 @@ export type RackDetail = {
     device_id: number;
     name: string;
     role: string;
+    placed: boolean;
+    u_start?: number | null;
+    u_height?: number | null;
     missing_cable: boolean;
     missing_power: boolean;
   }>;
