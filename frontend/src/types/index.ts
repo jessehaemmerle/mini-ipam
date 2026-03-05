@@ -59,6 +59,7 @@ export type Device = {
   name: string;
   role: string;
   status: string;
+  site_id?: number | null;
   rack_id?: number | null;
   serial?: string | null;
   asset_tag?: string | null;

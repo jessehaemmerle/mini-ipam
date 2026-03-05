@@ -2,35 +2,41 @@ import { FormEvent, useEffect, useState } from "react";
 
 import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
-import { Device, DeviceDetail, Rack } from "../types";
+import { Device, DeviceDetail, Rack, Site } from "../types";
 
 export function DevicesPage() {
   const [items, setItems] = useState<Device[]>([]);
   const [racks, setRacks] = useState<Rack[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<DeviceDetail | null>(null);
   const [form, setForm] = useState({
     name: "",
     role: "server",
+    site_id: "" as number | "",
     rack_id: "" as number | "",
     rack_u_start: 1,
     rack_u_height: 1,
     rack_face: "front",
   });
   const [rackTargets, setRackTargets] = useState<Record<number, number | "">>({});
+  const [siteTargets, setSiteTargets] = useState<Record<number, number | "">>({});
   const [newInterfaceName, setNewInterfaceName] = useState("eth0");
   const [newInletName, setNewInletName] = useState("PSU-A");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   const load = async () => {
-    const [deviceData, rackData] = await Promise.all([
+    const [deviceData, rackData, siteData] = await Promise.all([
       get<Device[]>("/dcim/devices"),
       get<Rack[]>("/dcim/racks"),
+      get<Site[]>("/dcim/sites"),
     ]);
     setItems(deviceData);
     setRacks(rackData);
+    setSites(siteData);
     setRackTargets(Object.fromEntries(deviceData.map((item) => [item.id, item.rack_id ?? ""])));
+    setSiteTargets(Object.fromEntries(deviceData.map((item) => [item.id, item.site_id ?? ""])));
   };
 
   useEffect(() => {
@@ -54,7 +60,7 @@ export function DevicesPage() {
       model: null,
       role: overrides.role ?? item.role,
       status: item.status,
-      site_id: null,
+      site_id: overrides.site_id !== undefined ? overrides.site_id : (item.site_id ?? null),
       rack_id: overrides.rack_id !== undefined ? overrides.rack_id : (item.rack_id ?? null),
     });
   };
@@ -66,6 +72,7 @@ export function DevicesPage() {
         name: form.name,
         role: form.role,
         status: "active",
+        site_id: form.site_id === "" ? null : form.site_id,
         rack_id: form.rack_id === "" ? null : form.rack_id,
         rack_u_start: form.rack_id === "" ? null : form.rack_u_start,
         rack_u_height: form.rack_u_height,
@@ -74,6 +81,7 @@ export function DevicesPage() {
       setForm({
         name: "",
         role: "server",
+        site_id: "",
         rack_id: "",
         rack_u_start: 1,
         rack_u_height: 1,
@@ -112,6 +120,20 @@ export function DevicesPage() {
       await load();
       if (selectedId === item.id) void loadDetail(item.id);
       setMessage(target === "" ? "Rack-Zuweisung entfernt." : "Rack zugewiesen.");
+      setError("");
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+      setMessage("");
+    }
+  };
+
+  const assignSite = async (item: Device) => {
+    const target = siteTargets[item.id];
+    try {
+      await updateDevice(item, { site_id: target === "" ? null : target });
+      await load();
+      if (selectedId === item.id) void loadDetail(item.id);
+      setMessage(target === "" ? "Site-Zuweisung entfernt." : "Site zugewiesen.");
       setError("");
     } catch (err: unknown) {
       setError(extractApiError(err));
@@ -183,6 +205,16 @@ export function DevicesPage() {
         </select>
         <select
           className="input"
+          value={form.site_id}
+          onChange={(e) => setForm({ ...form, site_id: e.target.value ? Number(e.target.value) : "" })}
+        >
+          <option value="">keine Site</option>
+          {sites.map((site) => (
+            <option key={site.id} value={site.id}>{site.name}</option>
+          ))}
+        </select>
+        <select
+          className="input"
           value={form.rack_id}
           onChange={(e) => setForm({ ...form, rack_id: e.target.value ? Number(e.target.value) : "" })}
         >
@@ -239,6 +271,7 @@ export function DevicesPage() {
               <th className="p-2">Name</th>
               <th className="p-2">Role</th>
               <th className="p-2">Status</th>
+              <th className="p-2">Site</th>
               <th className="p-2">Rack</th>
               <th className="p-2">Aktionen</th>
             </tr>
@@ -253,6 +286,25 @@ export function DevicesPage() {
                 <td className="p-2">{d.name}</td>
                 <td className="p-2">{d.role}</td>
                 <td className="p-2">{d.status}</td>
+                <td className="p-2">
+                  <div className="flex items-center gap-1">
+                    <select
+                      className="input h-8 py-1 text-xs"
+                      value={siteTargets[d.id] ?? ""}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        const value = e.target.value ? Number(e.target.value) : "";
+                        setSiteTargets((prev) => ({ ...prev, [d.id]: value }));
+                      }}
+                    >
+                      <option value="">keine Site</option>
+                      {sites.map((site) => (
+                        <option key={site.id} value={site.id}>{site.name}</option>
+                      ))}
+                    </select>
+                    <button type="button" className="rounded border px-2 py-1 text-xs" onClick={(e) => { e.stopPropagation(); void assignSite(d); }}>Assign</button>
+                  </div>
+                </td>
                 <td className="p-2">
                   <div className="flex items-center gap-1">
                     <select
