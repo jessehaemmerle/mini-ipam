@@ -50,7 +50,7 @@ export function DevicesPage() {
 
   const updateDevice = async (
     item: Device,
-    overrides: Partial<{ name: string; role: string; rack_id: number | null }>
+    overrides: Partial<{ name: string; role: string; site_id: number | null; rack_id: number | null }>
   ) => {
     await put(`/dcim/devices/${item.id}`, {
       name: overrides.name ?? item.name,
