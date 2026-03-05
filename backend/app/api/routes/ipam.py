@@ -10,12 +10,34 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_roles
 from app.db.session import get_db
-from app.models.entities import IPAddress, ObjectHistory, Prefix, RoleEnum, Site, VLAN, Vrf
+from app.models.entities import Device, Endpoint, IPAddress, Interface, ObjectHistory, Prefix, RoleEnum, Site, VLAN, Vrf
 from app.schemas.ipam import BulkReserveRequest, IPCreate, PrefixCreate, PrefixSplitRequest, VLANCreate, VrfCreate
 from app.services.audit import record_change, stamp_change
 from app.utils.ipam import ip_in_prefix, next_free_ip, parse_cidr, parse_ip, split_prefix
 
 router = APIRouter(prefix="/ipam", tags=["ipam"])
+
+
+def _validate_assignment(db: Session, payload: IPCreate) -> None:
+    if payload.assigned_type is None and payload.assigned_id is None:
+        return
+    if payload.assigned_type is None or payload.assigned_id is None:
+        raise HTTPException(status_code=400, detail="assigned_type and assigned_id must both be set")
+    if payload.assigned_type not in {"interface", "endpoint", "device"}:
+        raise HTTPException(status_code=400, detail="assigned_type must be one of: interface, endpoint, device")
+
+    if payload.assigned_type == "interface":
+        exists = db.query(Interface).filter(Interface.id == payload.assigned_id).first()
+        if not exists:
+            raise HTTPException(status_code=404, detail="Assigned interface not found")
+    elif payload.assigned_type == "endpoint":
+        exists = db.query(Endpoint).filter(Endpoint.id == payload.assigned_id).first()
+        if not exists:
+            raise HTTPException(status_code=404, detail="Assigned endpoint not found")
+    else:
+        exists = db.query(Device).filter(Device.id == payload.assigned_id).first()
+        if not exists:
+            raise HTTPException(status_code=404, detail="Assigned device not found")
 
 
 @router.get("/vrfs")
@@ -240,6 +262,7 @@ def list_ips(db: Session = Depends(get_db), q: str | None = None, _=Depends(requ
 @router.post("/ips")
 def create_ip(payload: IPCreate, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
     parse_ip(payload.address)
+    _validate_assignment(db, payload)
     duplicate = db.query(IPAddress).filter(IPAddress.address == payload.address, IPAddress.vrf_id == payload.vrf_id).first()
     if duplicate:
         raise HTTPException(status_code=409, detail="Duplicate IP in VRF")
@@ -265,6 +288,7 @@ def update_ip(ip_id: int, payload: IPCreate, db: Session = Depends(get_db), user
     if not obj:
         raise HTTPException(status_code=404, detail="IP not found")
     parse_ip(payload.address)
+    _validate_assignment(db, payload)
     duplicate = (
         db.query(IPAddress)
         .filter(IPAddress.id != ip_id, IPAddress.address == payload.address, IPAddress.vrf_id == payload.vrf_id)

@@ -15,6 +15,9 @@ export type IPAddress = {
   status: string;
   dns_name?: string | null;
   description?: string | null;
+  out_of_scope?: boolean;
+  assigned_type?: string | null;
+  assigned_id?: number | null;
 };
 
 export type Vrf = {
