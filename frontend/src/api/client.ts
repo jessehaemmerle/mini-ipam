@@ -24,3 +24,15 @@ export async function formPost<T>(url: string, data: FormData): Promise<T> {
   return res.data;
 }
 
+export function extractApiError(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const detail = error.response?.data?.detail;
+    if (typeof detail === "string" && detail.trim()) return detail;
+    if (error.response?.status === 401) return "Nicht eingeloggt. Bitte unter Admin anmelden.";
+    if (error.response?.status === 403) return "Keine Berechtigung zum Speichern.";
+    return `API Fehler (${error.response?.status ?? "unbekannt"})`;
+  }
+  if (error instanceof Error) return error.message;
+  return "Unbekannter Fehler";
+}
+

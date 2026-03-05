@@ -1,12 +1,15 @@
 import { FormEvent, useEffect, useState } from "react";
 
-import { get, post } from "../api/client";
+import { extractApiError, get, post } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
 import { IPAddress } from "../types";
 
 export function IPsPage() {
   const [items, setItems] = useState<IPAddress[]>([]);
   const [form, setForm] = useState({ address: "", vrf_id: 1, status: "reserved", dns_name: "" });
+  const [message, setMessage] = useState<string>("");
+  const [error, setError] = useState<string>("");
+  const [saving, setSaving] = useState(false);
 
   const load = () => get<IPAddress[]>("/ipam/ips").then(setItems);
 
@@ -16,9 +19,19 @@ export function IPsPage() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    await post("/ipam/ips", form);
-    setForm({ ...form, address: "", dns_name: "" });
-    load();
+    setError("");
+    setMessage("");
+    setSaving(true);
+    try {
+      await post("/ipam/ips", form);
+      setForm({ ...form, address: "", dns_name: "" });
+      await load();
+      setMessage("IP erfolgreich gespeichert.");
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -27,8 +40,10 @@ export function IPsPage() {
       <form onSubmit={submit} className="card flex flex-wrap items-end gap-2">
         <input className="input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="10.10.0.12" />
         <input className="input" value={form.dns_name} onChange={(e) => setForm({ ...form, dns_name: e.target.value })} placeholder="dns name" />
-        <button className="btn" type="submit">Quick Reserve</button>
+        <button className="btn" type="submit" disabled={saving}>{saving ? "Speichert..." : "Quick Reserve"}</button>
       </form>
+      {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
+      {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
