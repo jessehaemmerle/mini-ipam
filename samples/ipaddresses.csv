@@ -1,0 +1,4 @@
+address,vrf,status,dns_name,description,assigned_type,assigned_to
+10.10.10.10,1,assigned,srv01.local,Server 1,interface,1
+10.10.10.11,1,reserved,,Reserved for switch,endpoint,1
+2001:db8:10::10,1,assigned,web-v6.local,IPv6 VIP,endpoint,2
