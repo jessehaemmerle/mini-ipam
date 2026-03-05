@@ -67,6 +67,14 @@ class CableCreate(BaseModel):
     status: CableStatus = CableStatus.active
 
 
+class PatchPortCreate(BaseModel):
+    panel_id: int
+    position: int
+    front_port_name: str
+    back_port_name: str
+    allow_multi: bool = False
+
+
 class PowerInletCreate(BaseModel):
     device_id: int
     name: str

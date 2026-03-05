@@ -26,6 +26,7 @@ from app.schemas.dcim import (
     CableCreate,
     DeviceCreate,
     InterfaceCreate,
+    PatchPortCreate,
     PDUOutletCreate,
     PowerConnectionCreate,
     PowerInletCreate,
@@ -357,19 +358,65 @@ def list_patch_ports(db: Session = Depends(get_db), _=Depends(require_roles(Role
 
 
 @router.post("/patch-ports")
-def create_patch_port(panel_id: int, position: int, front_port_name: str, back_port_name: str, allow_multi: bool = False, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
-    obj = PatchPort(
-        panel_id=panel_id,
-        position=position,
-        front_port_name=front_port_name,
-        back_port_name=back_port_name,
-        allow_multi=allow_multi,
-    )
+def create_patch_port(payload: PatchPortCreate, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
+    obj = PatchPort(**payload.model_dump())
     stamp_change(obj, user.username)
     db.add(obj)
     db.commit()
     db.refresh(obj)
+    record_change(db, username=user.username, action="create", object_type="patch_port", object_id=obj.id, diff=payload.model_dump())
+    db.commit()
     return obj
+
+
+@router.put("/patch-ports/{patch_port_id}")
+def update_patch_port(
+    patch_port_id: int,
+    payload: PatchPortCreate,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor)),
+):
+    obj = db.query(PatchPort).filter(PatchPort.id == patch_port_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Patch port not found")
+    old = {
+        "panel_id": obj.panel_id,
+        "position": obj.position,
+        "front_port_name": obj.front_port_name,
+        "back_port_name": obj.back_port_name,
+        "allow_multi": obj.allow_multi,
+    }
+    for key, value in payload.model_dump().items():
+        setattr(obj, key, value)
+    stamp_change(obj, user.username)
+    db.commit()
+    db.refresh(obj)
+    record_change(
+        db,
+        username=user.username,
+        action="update",
+        object_type="patch_port",
+        object_id=obj.id,
+        diff={"old": old, "new": payload.model_dump()},
+    )
+    db.commit()
+    return obj
+
+
+@router.delete("/patch-ports/{patch_port_id}")
+def delete_patch_port(
+    patch_port_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor)),
+):
+    obj = db.query(PatchPort).filter(PatchPort.id == patch_port_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Patch port not found")
+    obj_id = obj.id
+    db.delete(obj)
+    record_change(db, username=user.username, action="delete", object_type="patch_port", object_id=obj_id, diff=None)
+    db.commit()
+    return {"deleted": obj_id}
 
 
 def _endpoint_busy(db: Session, endpoint_type: str, endpoint_id: int) -> bool:

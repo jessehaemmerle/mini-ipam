@@ -1,10 +1,10 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-import { del, extractApiError, get, post } from "../api/client";
+import { del, extractApiError, get, post, put } from "../api/client";
 import { CablePathGraph } from "../components/cable/CablePathGraph";
 import { CableTopologyGraph } from "../components/cable/CableTopologyGraph";
 import { PageHeader } from "../components/common/PageHeader";
-import { Cable, Device, EndpointOption, Site } from "../types";
+import { Cable, Device, EndpointOption, PatchPort, Site } from "../types";
 
 type PathResult = {
   nodes: string[];
@@ -20,12 +20,15 @@ type EndpointResponse = {
 export function CablingPage() {
   const [path, setPath] = useState<PathResult | null>(null);
   const [cables, setCables] = useState<Cable[]>([]);
+  const [patchPorts, setPatchPorts] = useState<PatchPort[]>([]);
   const [endpointOptions, setEndpointOptions] = useState<EndpointOption[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [listFilter, setListFilter] = useState({ q: "", cable_type: "" });
+  const [patchFilter, setPatchFilter] = useState({ q: "", panel_id: "" as number | "" });
+  const [editingPatchPortId, setEditingPatchPortId] = useState<number | null>(null);
 
   const [lookupKey, setLookupKey] = useState("");
   const [form, setForm] = useState({
@@ -38,10 +41,25 @@ export function CablingPage() {
     cable_type: "cat6",
     label: "",
   });
+  const [patchPortForm, setPatchPortForm] = useState({
+    panel_id: "" as number | "",
+    position: 1,
+    front_port_name: "",
+    back_port_name: "",
+    allow_multi: false,
+  });
 
   const optionByKey = useMemo(
     () => Object.fromEntries(endpointOptions.map((item) => [`${item.type}:${item.id}`, item])),
     [endpointOptions]
+  );
+  const deviceById = useMemo(
+    () => Object.fromEntries(devices.map((device) => [device.id, device.name])),
+    [devices]
+  );
+  const patchPanels = useMemo(
+    () => devices.filter((device) => device.role === "patchpanel"),
+    [devices]
   );
   const patchPanelChoices = useMemo(() => {
     const map = new Map<string, { value: string; label: string; site_id?: number | null }>();
@@ -133,20 +151,36 @@ export function CablingPage() {
     });
     return { nodes: Array.from(nodeMap.values()), edges };
   }, [filteredCables, optionByKey]);
+  const filteredPatchPorts = useMemo(() => {
+    const q = patchFilter.q.trim().toLowerCase();
+    return patchPorts.filter((port) => {
+      if (patchFilter.panel_id !== "" && port.panel_id !== patchFilter.panel_id) return false;
+      if (!q) return true;
+      return (
+        String(port.position).includes(q) ||
+        port.front_port_name.toLowerCase().includes(q) ||
+        port.back_port_name.toLowerCase().includes(q) ||
+        (deviceById[port.panel_id] || "").toLowerCase().includes(q)
+      );
+    });
+  }, [patchPorts, patchFilter, deviceById]);
 
   const load = async () => {
     try {
-      const [options, cableData, deviceData, siteData] = await Promise.all([
+      const [options, cableData, deviceData, siteData, patchPortData] = await Promise.all([
         get<EndpointResponse>("/dcim/endpoint-options"),
         get<Cable[]>("/dcim/cables"),
         get<Device[]>("/dcim/devices"),
         get<Site[]>("/dcim/sites"),
+        get<PatchPort[]>("/dcim/patch-ports"),
       ]);
       const merged = [...options.interfaces, ...options.patch_ports];
       setEndpointOptions(merged);
       setCables(cableData);
       setDevices(deviceData);
       setSites(siteData);
+      setPatchPorts(patchPortData);
+      setPatchPortForm((prev) => ({ ...prev, panel_id: prev.panel_id || deviceData.find((d) => d.role === "patchpanel")?.id || "" }));
 
       const defaultKey = merged[0] ? `${merged[0].type}:${merged[0].id}` : "";
       setLookupKey((prev) => prev || defaultKey);
@@ -230,6 +264,66 @@ export function CablingPage() {
       await del(`/dcim/cables/${cableId}`);
       await load();
       setMessage("Kabel geloescht.");
+      setError("");
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+      setMessage("");
+    }
+  };
+
+  const submitPatchPort = async (e: FormEvent) => {
+    e.preventDefault();
+    if (patchPortForm.panel_id === "") {
+      setError("Bitte Patchpanel auswaehlen.");
+      return;
+    }
+    try {
+      const payload = {
+        panel_id: patchPortForm.panel_id,
+        position: patchPortForm.position,
+        front_port_name: patchPortForm.front_port_name,
+        back_port_name: patchPortForm.back_port_name,
+        allow_multi: patchPortForm.allow_multi,
+      };
+      if (editingPatchPortId) {
+        await put(`/dcim/patch-ports/${editingPatchPortId}`, payload);
+      } else {
+        await post("/dcim/patch-ports", payload);
+      }
+      setEditingPatchPortId(null);
+      setPatchPortForm({
+        panel_id: patchPortForm.panel_id,
+        position: 1,
+        front_port_name: "",
+        back_port_name: "",
+        allow_multi: false,
+      });
+      await load();
+      setMessage(editingPatchPortId ? "Patchport aktualisiert." : "Patchport erstellt.");
+      setError("");
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+      setMessage("");
+    }
+  };
+
+  const startEditPatchPort = (port: PatchPort) => {
+    setEditingPatchPortId(port.id);
+    setPatchPortForm({
+      panel_id: port.panel_id,
+      position: port.position,
+      front_port_name: port.front_port_name,
+      back_port_name: port.back_port_name,
+      allow_multi: !!port.allow_multi,
+    });
+  };
+
+  const deletePatchPort = async (patchPortId: number) => {
+    if (!window.confirm(`Patchport #${patchPortId} wirklich loeschen?`)) return;
+    try {
+      await del(`/dcim/patch-ports/${patchPortId}`);
+      await load();
+      setMessage("Patchport geloescht.");
       setError("");
     } catch (err: unknown) {
       setError(extractApiError(err));
@@ -377,6 +471,77 @@ export function CablingPage() {
           </div>
         </>
       )}
+
+      <div className="card space-y-2">
+        <h3 className="text-lg font-semibold">Patchpanel Ports</h3>
+        <form className="flex flex-wrap items-end gap-2" onSubmit={submitPatchPort}>
+          <select
+            className="input"
+            value={patchPortForm.panel_id}
+            onChange={(e) => setPatchPortForm({ ...patchPortForm, panel_id: e.target.value ? Number(e.target.value) : "" })}
+          >
+            <option value="">Patchpanel waehlen</option>
+            {patchPanels.map((panel) => (
+              <option key={`panel-${panel.id}`} value={panel.id}>{panel.name}</option>
+            ))}
+          </select>
+          <input
+            className="input w-24"
+            type="number"
+            min={1}
+            value={patchPortForm.position}
+            onChange={(e) => setPatchPortForm({ ...patchPortForm, position: Number(e.target.value) })}
+            placeholder="Pos"
+          />
+          <input className="input" value={patchPortForm.front_port_name} onChange={(e) => setPatchPortForm({ ...patchPortForm, front_port_name: e.target.value })} placeholder="Front Port" />
+          <input className="input" value={patchPortForm.back_port_name} onChange={(e) => setPatchPortForm({ ...patchPortForm, back_port_name: e.target.value })} placeholder="Back Port" />
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={patchPortForm.allow_multi} onChange={(e) => setPatchPortForm({ ...patchPortForm, allow_multi: e.target.checked })} />
+            allow_multi
+          </label>
+          <button className="btn" type="submit">{editingPatchPortId ? "Update Port" : "Create Port"}</button>
+        </form>
+        <div className="flex flex-wrap gap-2">
+          <input className="input" value={patchFilter.q} onChange={(e) => setPatchFilter((prev) => ({ ...prev, q: e.target.value }))} placeholder="Filter Port/Panel" />
+          <select className="input" value={patchFilter.panel_id} onChange={(e) => setPatchFilter((prev) => ({ ...prev, panel_id: e.target.value ? Number(e.target.value) : "" }))}>
+            <option value="">alle Panels</option>
+            {patchPanels.map((panel) => (
+              <option key={`filter-panel-${panel.id}`} value={panel.id}>{panel.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left">
+                <th className="p-2">ID</th>
+                <th className="p-2">Panel</th>
+                <th className="p-2">Pos</th>
+                <th className="p-2">Front</th>
+                <th className="p-2">Back</th>
+                <th className="p-2">Multi</th>
+                <th className="p-2">Aktionen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredPatchPorts.map((port) => (
+                <tr key={port.id} className="border-b">
+                  <td className="p-2">{port.id}</td>
+                  <td className="p-2">{deviceById[port.panel_id] || `panel-${port.panel_id}`}</td>
+                  <td className="p-2">{port.position}</td>
+                  <td className="p-2">{port.front_port_name}</td>
+                  <td className="p-2">{port.back_port_name}</td>
+                  <td className="p-2">{port.allow_multi ? "yes" : "no"}</td>
+                  <td className="p-2">
+                    <button type="button" className="mr-2 rounded border px-2 py-1 text-xs" onClick={() => startEditPatchPort(port)}>Edit</button>
+                    <button type="button" className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={() => void deletePatchPort(port.id)}>Delete</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

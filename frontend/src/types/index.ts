@@ -93,6 +93,7 @@ export type PatchPort = {
   position: number;
   front_port_name: string;
   back_port_name: string;
+  allow_multi?: boolean;
 };
 
 export type EndpointOption = {
