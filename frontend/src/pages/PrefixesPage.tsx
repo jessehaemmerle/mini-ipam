@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+﻿import { FormEvent, useEffect, useState } from "react";
 
 import { get, post } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -14,7 +14,9 @@ export function PrefixesPage() {
     get<Vrf[]>("/ipam/vrfs").then(setVrfs);
   };
 
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -67,3 +69,4 @@ export function PrefixesPage() {
     </div>
   );
 }
+

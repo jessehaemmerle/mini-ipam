@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 
 import { get } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -24,3 +24,4 @@ export function ReportsPage() {
     </div>
   );
 }
+

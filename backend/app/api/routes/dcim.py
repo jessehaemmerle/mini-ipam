@@ -1,4 +1,4 @@
-from collections import deque
+﻿from collections import deque
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import and_, or_
@@ -292,3 +292,4 @@ def rack_power_map(rack_id: int, db: Session = Depends(get_db), _=Depends(requir
             connections.extend(conn)
         result.append({"device": dev.name, "power_inlets": len(inlets), "connections": [{"src": f"{c.src_type}:{c.src_id}", "dst": f"{c.dst_type}:{c.dst_id}"} for c in connections]})
     return result
+

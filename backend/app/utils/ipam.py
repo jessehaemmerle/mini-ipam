@@ -1,4 +1,4 @@
-import ipaddress
+﻿import ipaddress
 
 
 def parse_cidr(cidr: str) -> ipaddress._BaseNetwork:
@@ -41,3 +41,4 @@ def parse_vlan_range(value: str) -> list[int]:
         else:
             result.add(int(token))
     return sorted(result)
+

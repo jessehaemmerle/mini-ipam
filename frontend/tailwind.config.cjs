@@ -1,4 +1,4 @@
-module.exports = {
+﻿module.exports = {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
@@ -12,3 +12,4 @@ module.exports = {
   },
   plugins: []
 };
+

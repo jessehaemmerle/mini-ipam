@@ -1,4 +1,4 @@
-from collections.abc import Generator
+﻿from collections.abc import Generator
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -16,3 +16,4 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+

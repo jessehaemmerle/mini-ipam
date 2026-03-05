@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+﻿from fastapi import APIRouter, Depends
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -20,3 +20,4 @@ def global_search(q: str, db: Session = Depends(get_db), _=Depends(require_roles
         "racks": db.query(Rack).filter(Rack.name.ilike(term)).limit(20).all(),
         "cables": db.query(Cable).filter(Cable.label.ilike(term)).limit(20).all(),
     }
+

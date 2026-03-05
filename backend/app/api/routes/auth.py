@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+﻿from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
@@ -67,3 +67,4 @@ def bootstrap_admin(db: Session = Depends(get_db)):
     db.add(admin)
     db.commit()
     return {"message": "admin created", "username": settings.admin_user}
+

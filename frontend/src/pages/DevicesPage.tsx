@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+﻿import { FormEvent, useEffect, useState } from "react";
 
 import { get, post } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -9,7 +9,9 @@ export function DevicesPage() {
   const [form, setForm] = useState({ name: "", role: "server" });
 
   const load = () => get<Device[]>("/dcim/devices").then(setItems);
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -38,3 +40,4 @@ export function DevicesPage() {
     </div>
   );
 }
+

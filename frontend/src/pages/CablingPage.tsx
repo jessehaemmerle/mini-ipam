@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+﻿import { FormEvent, useState } from "react";
 
 import { get, post } from "../api/client";
 import { CablePathGraph } from "../components/cable/CablePathGraph";
@@ -28,7 +28,7 @@ export function CablingPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Cabling" subtitle="Kabel-Liste und Path-Graph �ber Patchpanels" />
+      <PageHeader title="Cabling" subtitle="Kabel-Liste und Path-Graph über Patchpanels" />
       <form className="card flex flex-wrap items-end gap-2" onSubmit={submit}>
         <input className="input w-28" value={form.endpoint_a_type} onChange={(e) => setForm({ ...form, endpoint_a_type: e.target.value })} />
         <input className="input w-24" type="number" value={form.endpoint_a_id} onChange={(e) => setForm({ ...form, endpoint_a_id: Number(e.target.value) })} />
@@ -55,3 +55,4 @@ export function CablingPage() {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-import csv
+﻿import csv
 import io
 import ipaddress
 from ipaddress import summarize_address_range
@@ -306,3 +306,4 @@ def ipam_stats(db: Session = Depends(get_db), _=Depends(require_roles(RoleEnum.a
         "vlans": db.query(func.count(VLAN.id)).scalar(),
         "vrfs": db.query(func.count(Vrf.id)).scalar(),
     }
+

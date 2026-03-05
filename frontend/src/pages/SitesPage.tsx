@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+﻿import { FormEvent, useEffect, useState } from "react";
 
 import { get, post } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -9,7 +9,9 @@ export function SitesPage() {
   const [form, setForm] = useState({ name: "", code: "" });
 
   const load = () => get<Site[]>("/dcim/sites").then(setItems);
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -32,3 +34,4 @@ export function SitesPage() {
     </div>
   );
 }
+

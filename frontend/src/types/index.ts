@@ -1,4 +1,4 @@
-export type Prefix = {
+﻿export type Prefix = {
   id: number;
   cidr: string;
   vrf_id: number;
@@ -74,3 +74,4 @@ export type Cable = {
   label?: string | null;
   status: string;
 };
+

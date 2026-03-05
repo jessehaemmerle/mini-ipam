@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 
 import { get } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -12,7 +12,7 @@ export function DashboardPage() {
 
   return (
     <div>
-      <PageHeader title="Dashboard" subtitle="IPAM-first �bersicht mit Schnellzugriffen" />
+      <PageHeader title="Dashboard" subtitle="IPAM-first Übersicht mit Schnellzugriffen" />
       <div className="grid gap-4 md:grid-cols-4">
         {Object.entries(stats).map(([key, value]) => (
           <div key={key} className="card">
@@ -24,3 +24,4 @@ export function DashboardPage() {
     </div>
   );
 }
+

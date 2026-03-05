@@ -1,4 +1,4 @@
-import { RackPlacement } from "../../types";
+﻿import { RackPlacement } from "../../types";
 
 type Props = {
   heightU: number;
@@ -43,3 +43,4 @@ export function RackDiagram({ heightU, placements, face }: Props) {
     </svg>
   );
 }
+

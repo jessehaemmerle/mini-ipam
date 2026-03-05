@@ -1,4 +1,4 @@
-type Edge = { from: [string, number]; to: [string, number]; cable_id: number };
+﻿type Edge = { from: [string, number]; to: [string, number]; cable_id: number };
 
 type Props = {
   nodes: string[];
@@ -36,3 +36,4 @@ export function CablePathGraph({ nodes, edges }: Props) {
     </svg>
   );
 }
+

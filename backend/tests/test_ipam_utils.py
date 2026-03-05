@@ -1,4 +1,4 @@
-import pytest
+﻿import pytest
 
 from app.utils.ipam import ip_in_prefix, next_free_ip, parse_cidr, parse_ip
 
@@ -22,3 +22,4 @@ def test_duplicate_detection_semantic():
 def test_ip_in_prefix():
     assert ip_in_prefix("10.10.0.5", "10.10.0.0/24") is True
     assert ip_in_prefix("10.10.1.5", "10.10.0.0/24") is False
+

@@ -1,4 +1,4 @@
-services:
+﻿services:
   db:
     image: postgres:16-alpine
     environment:
@@ -50,3 +50,4 @@ services:
 volumes:
   pg_data:
   uploads_data:
+

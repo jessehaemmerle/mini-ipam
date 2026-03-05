@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy import text
@@ -88,3 +88,4 @@ def upload_attachment(
 @router.get("/attachments")
 def list_attachments(object_type: str, object_id: int, db: Session = Depends(get_db), _=Depends(require_roles(RoleEnum.admin, RoleEnum.editor, RoleEnum.readonly))):
     return db.query(Attachment).filter(Attachment.object_type == object_type, Attachment.object_id == object_id).all()
+

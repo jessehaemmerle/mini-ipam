@@ -1,4 +1,4 @@
-type Props = {
+﻿type Props = {
   title: string;
   subtitle?: string;
 };
@@ -11,3 +11,4 @@ export function PageHeader({ title, subtitle }: Props) {
     </div>
   );
 }
+

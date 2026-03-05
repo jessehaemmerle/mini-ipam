@@ -1,4 +1,5 @@
-cidr,vrf,site,role,status,description
+﻿cidr,vrf,site,role,status,description
 10.10.10.0/24,1,1,LAN,active,Office LAN
 10.20.0.0/24,1,1,MGMT,reserved,Management segment
 2001:db8:10::/64,1,1,WAN,planned,IPv6 WAN
+

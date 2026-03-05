@@ -1,4 +1,4 @@
-from datetime import datetime
+﻿from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import (
@@ -365,3 +365,4 @@ class ObjectHistory(Base):
     changed_by: Mapped[str] = mapped_column(String(64))
     action: Mapped[str] = mapped_column(String(16))
     diff: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+﻿from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
@@ -35,3 +35,4 @@ def record_change(
 def stamp_change(model_obj: object, username: str) -> None:
     setattr(model_obj, "last_changed_by", username)
     setattr(model_obj, "last_changed_at", datetime.now(timezone.utc))
+

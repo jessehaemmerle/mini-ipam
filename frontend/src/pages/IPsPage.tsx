@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+﻿import { FormEvent, useEffect, useState } from "react";
 
 import { get, post } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -10,7 +10,9 @@ export function IPsPage() {
 
   const load = () => get<IPAddress[]>("/ipam/ips").then(setItems);
 
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -50,3 +52,4 @@ export function IPsPage() {
     </div>
   );
 }
+

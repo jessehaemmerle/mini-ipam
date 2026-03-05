@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -70,3 +70,4 @@ def bootstrap() -> None:
             db.add(Device(name="patchpanel-1", role="patchpanel", rack_id=rack.id, site_id=site.id, last_changed_by="system"))
 
         db.commit()
+

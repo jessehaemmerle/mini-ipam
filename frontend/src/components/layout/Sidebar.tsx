@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+﻿import { NavLink } from "react-router-dom";
 
 const nav = [
   ["Dashboard", "/"],
@@ -40,3 +40,4 @@ export function Sidebar() {
     </aside>
   );
 }
+

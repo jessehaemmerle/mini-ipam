@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+﻿from pydantic import BaseModel, Field
 
 from app.models.entities import IPStatus, PrefixStatus, VLANStatus
 
@@ -45,3 +45,4 @@ class VLANCreate(BaseModel):
     site_id: int | None = None
     status: VLANStatus = VLANStatus.active
     description: str | None = None
+

@@ -1,4 +1,4 @@
-from fastapi import Cookie, Depends, HTTPException, status
+﻿from fastapi import Cookie, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.security import decode_access_token
@@ -28,3 +28,4 @@ def require_roles(*roles: RoleEnum):
         return user
 
     return _checker
+

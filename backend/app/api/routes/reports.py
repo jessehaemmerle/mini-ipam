@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+﻿from fastapi import APIRouter, Depends
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
@@ -90,3 +90,4 @@ def power_orphans(db: Session = Depends(get_db), _=Depends(require_roles(RoleEnu
     connected = {item.src_id for item in db.query(PowerConnection).filter(PowerConnection.src_type == "power_inlet").all()}
     device_ids = [item.device_id for item in db.query(PowerInlet).filter(PowerInlet.id.in_(inlet_ids - connected)).all()]
     return db.query(Device).filter(Device.id.in_(device_ids)).all()
+

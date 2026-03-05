@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+﻿import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { get, post } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -55,3 +55,4 @@ export function RacksPage() {
     </div>
   );
 }
+

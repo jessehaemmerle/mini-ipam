@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+﻿from pydantic import BaseModel
 
 from app.models.entities import RoleEnum
 
@@ -15,3 +15,4 @@ class UserOut(BaseModel):
 
     class Config:
         from_attributes = True
+

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+﻿import { FormEvent, useEffect, useState } from "react";
 
 import { get, post } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -9,7 +9,9 @@ export function VRFsPage() {
   const [name, setName] = useState("");
 
   const load = () => get<Vrf[]>("/ipam/vrfs").then(setItems);
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -20,7 +22,7 @@ export function VRFsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="VRFs" subtitle="Einfacher VRF-Scope f�r Prefixes/IPs" />
+      <PageHeader title="VRFs" subtitle="Einfacher VRF-Scope für Prefixes/IPs" />
       <form className="card flex gap-2" onSubmit={submit}>
         <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
         <button className="btn" type="submit">Add</button>
@@ -33,3 +35,4 @@ export function VRFsPage() {
     </div>
   );
 }
+

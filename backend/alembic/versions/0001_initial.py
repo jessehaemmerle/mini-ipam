@@ -1,4 +1,4 @@
-"""initial schema
+﻿"""initial schema
 
 Revision ID: 0001_initial
 Revises:
@@ -24,3 +24,4 @@ def upgrade() -> None:
 def downgrade() -> None:
     bind = op.get_bind()
     Base.metadata.drop_all(bind=bind)
+

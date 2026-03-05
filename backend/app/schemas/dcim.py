@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+﻿from pydantic import BaseModel, Field
 
 from app.models.entities import CableStatus, DeviceStatus
 
@@ -79,3 +79,4 @@ class PowerConnectionCreate(BaseModel):
     src_id: int
     dst_type: str
     dst_id: int
+

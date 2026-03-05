@@ -1,6 +1,6 @@
-# mini-ipam
+ï»¿# mini-ipam
 
-IPAM-first Tool mit grundlegenden DCIM-Funktionen (Sites, Racks, Cabling inkl. Patchpanel-Pfade, Power Mapping), Single-Tenant, offline-fähig, lokal per Docker Compose startbar.
+IPAM-first Tool mit grundlegenden DCIM-Funktionen (Sites, Racks, Cabling inkl. Patchpanel-Pfade, Power Mapping), Single-Tenant, offline-fÃ¤hig, lokal per Docker Compose startbar.
 
 ## Features
 
@@ -10,7 +10,7 @@ IPAM-first Tool mit grundlegenden DCIM-Funktionen (Sites, Racks, Cabling inkl. P
 - IP-Adressen (Status, DNS, Assignment, VRF Duplicate Check, optional out-of-scope)
 - VLANs (VID 1-4094, Site Scope, Konfliktcheck)
 - Bulk Reserve IP Range
-- CSV Import/Export für Prefix/IP/VLAN
+- CSV Import/Export fÃ¼r Prefix/IP/VLAN
 
 ### DCIM
 - Sites
@@ -21,7 +21,7 @@ IPAM-first Tool mit grundlegenden DCIM-Funktionen (Sites, Racks, Cabling inkl. P
 - Power Entities: Inlets, PDU Outlets, Power Connections, Rack Power Map
 
 ### Produktive Must-Haves
-- Globale Suche über Prefix/IP/VLAN/Device/Rack/Cable
+- Globale Suche Ã¼ber Prefix/IP/VLAN/Device/Rack/Cable
 - Audit Log + Objekt-History (`object_history`)
 - Tags, Kommentare, Attachments
 - Reports: IP Utilization, Konflikte, Unassigned Interfaces, Cable Orphans, Power Orphans
@@ -151,12 +151,13 @@ npm install
 npm run dev
 ```
 
-## Qualität
+## QualitÃ¤t
 - Python Lint/Format: `ruff`, `black`
 - Frontend Lint/Format: `eslint`, `prettier`
-- Unit-Tests für IPAM-Logik in `backend/tests`
+- Unit-Tests fÃ¼r IPAM-Logik in `backend/tests`
 
 ## Hinweise
 - Single-Tenant Design, lokale Auth mit HTTP-only Session Cookie.
-- RBAC serverseitig für `admin/editor/readonly`.
-- Für produktiven Internet-Betrieb `COOKIE_SECURE=true` und starkes `SECRET_KEY` setzen.
+- RBAC serverseitig fÃ¼r `admin/editor/readonly`.
+- FÃ¼r produktiven Internet-Betrieb `COOKIE_SECURE=true` und starkes `SECRET_KEY` setzen.
+
