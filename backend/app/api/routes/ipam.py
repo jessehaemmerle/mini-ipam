@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_roles
 from app.db.session import get_db
-from app.models.entities import IPAddress, Prefix, RoleEnum, Site, VLAN, Vrf
+from app.models.entities import IPAddress, ObjectHistory, Prefix, RoleEnum, Site, VLAN, Vrf
 from app.schemas.ipam import BulkReserveRequest, IPCreate, PrefixCreate, PrefixSplitRequest, VLANCreate, VrfCreate
 from app.services.audit import record_change, stamp_change
 from app.utils.ipam import ip_in_prefix, next_free_ip, parse_cidr, parse_ip, split_prefix
@@ -93,6 +93,39 @@ def prefix_utilization(prefix_id: int, db: Session = Depends(get_db), _=Depends(
     free = max(total_hosts - used, 0)
     pct = round((used / total_hosts) * 100, 2) if total_hosts else 0
     return {"prefix": prefix.cidr, "used": used, "free": free, "utilization_pct": pct}
+
+
+@router.get("/prefixes/{prefix_id}/detail")
+def prefix_detail(
+    prefix_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_roles(RoleEnum.admin, RoleEnum.editor, RoleEnum.readonly)),
+):
+    prefix = db.query(Prefix).filter(Prefix.id == prefix_id).first()
+    if not prefix:
+        raise HTTPException(status_code=404, detail="Prefix not found")
+
+    utilization = prefix_utilization(prefix_id=prefix_id, db=db)
+    next_ip = prefix_next_free_ip(prefix_id=prefix_id, db=db)
+    ips = [
+        ip
+        for ip in db.query(IPAddress).filter(IPAddress.vrf_id == prefix.vrf_id).order_by(IPAddress.address.asc()).all()
+        if ip_in_prefix(ip.address, prefix.cidr)
+    ]
+    history = (
+        db.query(ObjectHistory)
+        .filter(ObjectHistory.object_type == "prefix", ObjectHistory.object_id == prefix.id)
+        .order_by(ObjectHistory.changed_at.desc())
+        .limit(20)
+        .all()
+    )
+    return {
+        "overview": prefix,
+        "utilization": utilization,
+        "next_free_ip": next_ip["next_free_ip"],
+        "ips": ips,
+        "history": history,
+    }
 
 
 @router.get("/prefixes/{prefix_id}/next-free-ip")

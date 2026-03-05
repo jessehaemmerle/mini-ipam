@@ -2,16 +2,24 @@ import { FormEvent, useEffect, useState } from "react";
 
 import { get, post } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
-import { Prefix, Vrf } from "../types";
+import { Prefix, PrefixDetail, Vrf } from "../types";
 
 export function PrefixesPage() {
   const [items, setItems] = useState<Prefix[]>([]);
   const [vrfs, setVrfs] = useState<Vrf[]>([]);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [detail, setDetail] = useState<PrefixDetail | null>(null);
+  const [tab, setTab] = useState<"overview" | "ips" | "history">("overview");
   const [form, setForm] = useState({ cidr: "", vrf_id: 1, role: "LAN" });
 
   const load = () => {
     get<Prefix[]>("/ipam/prefixes").then(setItems);
     get<Vrf[]>("/ipam/vrfs").then(setVrfs);
+  };
+
+  const loadDetail = (id: number) => {
+    setSelectedId(id);
+    get<PrefixDetail>(`/ipam/prefixes/${id}/detail`).then(setDetail);
   };
 
   useEffect(() => {
@@ -56,7 +64,11 @@ export function PrefixesPage() {
           </thead>
           <tbody>
             {items.map((item) => (
-              <tr key={item.id} className="border-b">
+              <tr
+                key={item.id}
+                className={`border-b cursor-pointer ${selectedId === item.id ? "bg-amber-50" : ""}`}
+                onClick={() => loadDetail(item.id)}
+              >
                 <td className="p-2 font-semibold">{item.cidr}</td>
                 <td className="p-2">{item.vrf_id}</td>
                 <td className="p-2">{item.role}</td>
@@ -66,6 +78,34 @@ export function PrefixesPage() {
           </tbody>
         </table>
       </div>
+
+      {detail && (
+        <div className="card space-y-3">
+          <div className="flex gap-2">
+            <button className="btn" onClick={() => setTab("overview")}>Overview</button>
+            <button className="btn" onClick={() => setTab("ips")}>IPs</button>
+            <button className="btn" onClick={() => setTab("history")}>History</button>
+          </div>
+          {tab === "overview" && (
+            <div className="grid gap-2 md:grid-cols-4">
+              <div><p className="muted">Prefix</p><p className="font-semibold">{detail.overview.cidr}</p></div>
+              <div><p className="muted">Used</p><p className="font-semibold">{detail.utilization.used}</p></div>
+              <div><p className="muted">Free</p><p className="font-semibold">{detail.utilization.free}</p></div>
+              <div><p className="muted">Next Free IP</p><p className="font-semibold">{detail.next_free_ip || "-"}</p></div>
+            </div>
+          )}
+          {tab === "ips" && (
+            <div className="max-h-56 overflow-auto text-sm">
+              {detail.ips.map((ip) => <div key={ip.id} className="border-b p-2">{ip.address} ({ip.status})</div>)}
+            </div>
+          )}
+          {tab === "history" && (
+            <div className="max-h-56 overflow-auto text-sm">
+              {detail.history.map((h) => <div key={h.id} className="border-b p-2">{h.changed_at} - {h.action} by {h.changed_by}</div>)}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

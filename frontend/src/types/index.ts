@@ -75,3 +75,48 @@ export type Cable = {
   status: string;
 };
 
+export type PrefixDetail = {
+  overview: Prefix;
+  utilization: {
+    prefix: string;
+    used: number;
+    free: number;
+    utilization_pct: number;
+  };
+  next_free_ip: string | null;
+  ips: IPAddress[];
+  history: Array<{
+    id: number;
+    changed_at: string;
+    changed_by: string;
+    action: string;
+    diff?: Record<string, unknown> | null;
+  }>;
+};
+
+export type DeviceDetail = {
+  overview: Device;
+  interfaces: Array<{ id: number; name: string; if_type: string; speed?: string | null }>;
+  ips: IPAddress[];
+  cabling: Cable[];
+  power: {
+    inlets: Array<{ id: number; name: string }>;
+    connections: Array<{ id: number; src_type: string; src_id: number; dst_type: string; dst_id: number }>;
+    has_power: boolean;
+  };
+  history: Array<{ id: number; changed_at: string; changed_by: string; action: string }>;
+};
+
+export type RackDetail = {
+  overview: Rack;
+  placements: RackPlacement[];
+  reserved_slots: Array<{ id: number; u_start: number; u_height: number; reason?: string | null }>;
+  devices: Array<{
+    device_id: number;
+    name: string;
+    role: string;
+    missing_cable: boolean;
+    missing_power: boolean;
+  }>;
+};
+

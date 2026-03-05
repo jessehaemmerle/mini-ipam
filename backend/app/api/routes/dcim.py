@@ -9,7 +9,9 @@ from app.db.session import get_db
 from app.models.entities import (
     Cable,
     Device,
+    IPAddress,
     Interface,
+    ObjectHistory,
     PDUOutlet,
     PatchPort,
     PowerConnection,
@@ -74,6 +76,65 @@ def list_devices(db: Session = Depends(get_db), q: str | None = None, _=Depends(
     if q:
         query = query.filter(or_(Device.name.ilike(f"%{q}%"), Device.asset_tag.ilike(f"%{q}%"), Device.serial.ilike(f"%{q}%")))
     return query.order_by(Device.name.asc()).all()
+
+
+@router.get("/devices/{device_id}/detail")
+def device_detail(
+    device_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_roles(RoleEnum.admin, RoleEnum.editor, RoleEnum.readonly)),
+):
+    device = db.query(Device).filter(Device.id == device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    interfaces = db.query(Interface).filter(Interface.device_id == device.id).order_by(Interface.name.asc()).all()
+    interface_ids = [item.id for item in interfaces]
+    ips = (
+        db.query(IPAddress)
+        .filter(
+            IPAddress.assigned_type == "interface",
+            IPAddress.assigned_id.in_(interface_ids if interface_ids else [-1]),
+        )
+        .order_by(IPAddress.address.asc())
+        .all()
+    )
+    cables = (
+        db.query(Cable)
+        .filter(
+            or_(
+                and_(Cable.endpoint_a_type == "interface", Cable.endpoint_a_id.in_(interface_ids if interface_ids else [-1])),
+                and_(Cable.endpoint_b_type == "interface", Cable.endpoint_b_id.in_(interface_ids if interface_ids else [-1])),
+            )
+        )
+        .all()
+    )
+    inlets = db.query(PowerInlet).filter(PowerInlet.device_id == device.id).all()
+    inlet_ids = [item.id for item in inlets]
+    power_connections = (
+        db.query(PowerConnection)
+        .filter(PowerConnection.src_type == "power_inlet", PowerConnection.src_id.in_(inlet_ids if inlet_ids else [-1]))
+        .all()
+    )
+    history = (
+        db.query(ObjectHistory)
+        .filter(ObjectHistory.object_type == "device", ObjectHistory.object_id == device.id)
+        .order_by(ObjectHistory.changed_at.desc())
+        .limit(20)
+        .all()
+    )
+    return {
+        "overview": device,
+        "interfaces": interfaces,
+        "ips": ips,
+        "cabling": cables,
+        "power": {
+            "inlets": inlets,
+            "connections": power_connections,
+            "has_power": bool(power_connections),
+        },
+        "history": history,
+    }
 
 
 @router.post("/devices")
@@ -210,6 +271,61 @@ def place_device(payload: RackPlacementCreate, db: Session = Depends(get_db), us
 @router.get("/rack-placements/{rack_id}")
 def rack_placements(rack_id: int, db: Session = Depends(get_db), _=Depends(require_roles(RoleEnum.admin, RoleEnum.editor, RoleEnum.readonly))):
     return db.query(RackPlacement).filter(RackPlacement.rack_id == rack_id).all()
+
+
+@router.get("/racks/{rack_id}/detail")
+def rack_detail(
+    rack_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_roles(RoleEnum.admin, RoleEnum.editor, RoleEnum.readonly)),
+):
+    rack = db.query(Rack).filter(Rack.id == rack_id).first()
+    if not rack:
+        raise HTTPException(status_code=404, detail="Rack not found")
+
+    placements = db.query(RackPlacement).filter(RackPlacement.rack_id == rack.id).all()
+    reserved_slots = db.query(ReservedUSlot).filter(ReservedUSlot.rack_id == rack.id).all()
+    device_ids = [p.device_id for p in placements]
+    devices = db.query(Device).filter(Device.id.in_(device_ids if device_ids else [-1])).all()
+
+    details = []
+    for dev in devices:
+        interfaces = db.query(Interface).filter(Interface.device_id == dev.id).all()
+        iface_ids = [item.id for item in interfaces]
+        has_cable = (
+            db.query(Cable)
+            .filter(
+                or_(
+                    and_(Cable.endpoint_a_type == "interface", Cable.endpoint_a_id.in_(iface_ids if iface_ids else [-1])),
+                    and_(Cable.endpoint_b_type == "interface", Cable.endpoint_b_id.in_(iface_ids if iface_ids else [-1])),
+                )
+            )
+            .first()
+            is not None
+        )
+        inlet_ids = [item[0] for item in db.query(PowerInlet.id).filter(PowerInlet.device_id == dev.id).all()]
+        has_power = (
+            db.query(PowerConnection)
+            .filter(PowerConnection.src_type == "power_inlet", PowerConnection.src_id.in_(inlet_ids if inlet_ids else [-1]))
+            .first()
+            is not None
+        )
+        details.append(
+            {
+                "device_id": dev.id,
+                "name": dev.name,
+                "role": dev.role,
+                "missing_cable": bool(interfaces) and not has_cable,
+                "missing_power": bool(inlet_ids) and not has_power,
+            }
+        )
+
+    return {
+        "overview": rack,
+        "placements": placements,
+        "reserved_slots": reserved_slots,
+        "devices": details,
+    }
 
 
 @router.get("/cable-path")
