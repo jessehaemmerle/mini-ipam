@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { extractApiError, get, post } from "../api/client";
 import { Device, PDUOutlet, PowerConnection, PowerInlet, Rack } from "../types";
@@ -18,6 +18,19 @@ export function PowerPage() {
   const [inletForm, setInletForm] = useState({ device_id: 0, name: "PSU-A" });
   const [outletForm, setOutletForm] = useState({ pdu_device_id: 0, name: "Outlet-1" });
   const [connectionForm, setConnectionForm] = useState({ src_id: 0, dst_id: 0 });
+
+  const deviceById = useMemo(
+    () => Object.fromEntries(devices.map((d) => [d.id, d.name])),
+    [devices]
+  );
+  const inletById = useMemo(
+    () => Object.fromEntries(inlets.map((i) => [i.id, i])),
+    [inlets]
+  );
+  const outletById = useMemo(
+    () => Object.fromEntries(outlets.map((o) => [o.id, o])),
+    [outlets]
+  );
 
   const load = async () => {
     const [deviceData, rackData, inletData, outletData, connectionData] = await Promise.all([
@@ -129,13 +142,13 @@ export function PowerPage() {
         <div>
           <label className="muted">Power Inlet</label>
           <select className="input ml-2" value={connectionForm.src_id} onChange={(e) => setConnectionForm({ ...connectionForm, src_id: Number(e.target.value) })}>
-            {inlets.map((i) => <option key={i.id} value={i.id}>{i.id} - {i.name} (Device {i.device_id})</option>)}
+            {inlets.map((i) => <option key={i.id} value={i.id}>{i.name} ({deviceById[i.device_id] || `device-${i.device_id}`})</option>)}
           </select>
         </div>
         <div>
           <label className="muted">PDU Outlet</label>
           <select className="input ml-2" value={connectionForm.dst_id} onChange={(e) => setConnectionForm({ ...connectionForm, dst_id: Number(e.target.value) })}>
-            {outlets.map((o) => <option key={o.id} value={o.id}>{o.id} - {o.name} (PDU {o.pdu_device_id})</option>)}
+            {outlets.map((o) => <option key={o.id} value={o.id}>{o.name} ({deviceById[o.pdu_device_id] || `pdu-${o.pdu_device_id}`})</option>)}
           </select>
         </div>
         <button className="btn" type="submit">Connect</button>
@@ -146,7 +159,19 @@ export function PowerPage() {
           <thead><tr className="border-b text-left"><th className="p-2">ID</th><th className="p-2">Source</th><th className="p-2">Target</th></tr></thead>
           <tbody>
             {connections.map((c) => (
-              <tr key={c.id} className="border-b"><td className="p-2">{c.id}</td><td className="p-2">{c.src_type}:{c.src_id}</td><td className="p-2">{c.dst_type}:{c.dst_id}</td></tr>
+              <tr key={c.id} className="border-b">
+                <td className="p-2">{c.id}</td>
+                <td className="p-2">
+                  {c.src_type === "power_inlet" && inletById[c.src_id]
+                    ? `${inletById[c.src_id].name} (${deviceById[inletById[c.src_id].device_id] || `device-${inletById[c.src_id].device_id}`})`
+                    : `${c.src_type}:${c.src_id}`}
+                </td>
+                <td className="p-2">
+                  {c.dst_type === "pdu_outlet" && outletById[c.dst_id]
+                    ? `${outletById[c.dst_id].name} (${deviceById[outletById[c.dst_id].pdu_device_id] || `pdu-${outletById[c.dst_id].pdu_device_id}`})`
+                    : `${c.dst_type}:${c.dst_id}`}
+                </td>
+              </tr>
             ))}
           </tbody>
         </table>

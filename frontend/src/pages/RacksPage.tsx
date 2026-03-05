@@ -39,6 +39,10 @@ export function RacksPage() {
   }, []);
 
   const rack = useMemo(() => racks.find((r) => r.id === selectedRack), [racks, selectedRack]);
+  const deviceNames = useMemo(
+    () => Object.fromEntries((detail?.devices ?? []).map((d) => [d.device_id, d.name])),
+    [detail]
+  );
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -130,7 +134,7 @@ export function RacksPage() {
         <button type="button" className="rounded border border-red-300 px-3 py-2 text-sm text-red-700" onClick={() => void deleteRack()}>Delete Rack</button>
       </div>
 
-      {rack && <RackDiagram heightU={rack.height_u} placements={placements} face={face} />}
+      {rack && <RackDiagram heightU={rack.height_u} placements={placements} face={face} deviceNames={deviceNames} />}
 
       {detail && (
         <div className="card">

@@ -4,11 +4,12 @@ type Props = {
   heightU: number;
   placements: RackPlacement[];
   face: "front" | "rear";
+  deviceNames?: Record<number, string>;
 };
 
 const U_HEIGHT = 16;
 
-export function RackDiagram({ heightU, placements, face }: Props) {
+export function RackDiagram({ heightU, placements, face, deviceNames = {} }: Props) {
   const width = 380;
   const height = heightU * U_HEIGHT + 40;
 
@@ -35,7 +36,7 @@ export function RackDiagram({ heightU, placements, face }: Props) {
             <g key={placement.id}>
               <rect x="28" y={y} width={width - 56} height={placement.u_height * U_HEIGHT} fill="#1d6b4f" opacity="0.9" rx="4" />
               <text x="36" y={y + 14} fill="#fff" fontSize="11">
-                {placement.label || `Device ${placement.device_id}`}
+                {placement.label || deviceNames[placement.device_id] || `Device ${placement.device_id}`}
               </text>
             </g>
           );

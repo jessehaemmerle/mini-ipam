@@ -321,9 +321,16 @@ def create_interface(payload: InterfaceCreate, db: Session = Depends(get_db), us
 def endpoint_options(db: Session = Depends(get_db), _=Depends(require_roles(RoleEnum.admin, RoleEnum.editor, RoleEnum.readonly))):
     interfaces = db.query(Interface).order_by(Interface.device_id.asc(), Interface.name.asc()).all()
     patch_ports = db.query(PatchPort).order_by(PatchPort.panel_id.asc(), PatchPort.position.asc()).all()
+    devices = {item.id: item.name for item in db.query(Device).all()}
     return {
         "interfaces": [
-            {"id": item.id, "type": "interface", "name": item.name, "device_id": item.device_id}
+            {
+                "id": item.id,
+                "type": "interface",
+                "name": item.name,
+                "device_id": item.device_id,
+                "device_name": devices.get(item.device_id),
+            }
             for item in interfaces
         ],
         "patch_ports": [
@@ -332,6 +339,7 @@ def endpoint_options(db: Session = Depends(get_db), _=Depends(require_roles(Role
                 "type": "patch_port",
                 "name": f"{item.front_port_name}/{item.back_port_name}",
                 "panel_id": item.panel_id,
+                "panel_name": devices.get(item.panel_id),
             }
             for item in patch_ports
         ],

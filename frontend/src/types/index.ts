@@ -96,7 +96,9 @@ export type EndpointOption = {
   type: "interface" | "patch_port";
   name: string;
   device_id?: number;
+  device_name?: string;
   panel_id?: number;
+  panel_name?: string;
 };
 
 export type PowerInlet = {

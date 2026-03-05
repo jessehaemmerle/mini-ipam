@@ -31,6 +31,15 @@ export function CablingPage() {
     [endpointOptions]
   );
 
+  const endpointLabel = (type: string, id: number) => {
+    const opt = optionByKey[`${type}:${id}`];
+    if (!opt) return `${type}:${id}`;
+    if (opt.type === "interface") {
+      return `${opt.device_name || `device-${opt.device_id}`} / ${opt.name}`;
+    }
+    return `${opt.panel_name || `panel-${opt.panel_id}`} / ${opt.name}`;
+  };
+
   const load = async () => {
     const [options, cableData] = await Promise.all([
       get<EndpointResponse>("/dcim/endpoint-options"),
@@ -100,7 +109,11 @@ export function CablingPage() {
           <label className="muted">Endpoint A</label>
           <select className="input ml-2" value={form.endpoint_a_key} onChange={(e) => setForm({ ...form, endpoint_a_key: e.target.value })}>
             {endpointOptions.map((opt) => (
-              <option key={`a-${opt.type}-${opt.id}`} value={`${opt.type}:${opt.id}`}>{opt.type}:{opt.id} - {opt.name}</option>
+              <option key={`a-${opt.type}-${opt.id}`} value={`${opt.type}:${opt.id}`}>
+                {opt.type === "interface"
+                  ? `${opt.device_name || `device-${opt.device_id}`} / ${opt.name}`
+                  : `${opt.panel_name || `panel-${opt.panel_id}`} / ${opt.name}`}
+              </option>
             ))}
           </select>
         </div>
@@ -108,7 +121,11 @@ export function CablingPage() {
           <label className="muted">Endpoint B</label>
           <select className="input ml-2" value={form.endpoint_b_key} onChange={(e) => setForm({ ...form, endpoint_b_key: e.target.value })}>
             {endpointOptions.map((opt) => (
-              <option key={`b-${opt.type}-${opt.id}`} value={`${opt.type}:${opt.id}`}>{opt.type}:{opt.id} - {opt.name}</option>
+              <option key={`b-${opt.type}-${opt.id}`} value={`${opt.type}:${opt.id}`}>
+                {opt.type === "interface"
+                  ? `${opt.device_name || `device-${opt.device_id}`} / ${opt.name}`
+                  : `${opt.panel_name || `panel-${opt.panel_id}`} / ${opt.name}`}
+              </option>
             ))}
           </select>
         </div>
@@ -123,7 +140,11 @@ export function CablingPage() {
       <div className="card flex gap-2">
         <select className="input" value={lookupKey} onChange={(e) => setLookupKey(e.target.value)}>
           {endpointOptions.map((opt) => (
-            <option key={`lookup-${opt.type}-${opt.id}`} value={`${opt.type}:${opt.id}`}>{opt.type}:{opt.id} - {opt.name}</option>
+            <option key={`lookup-${opt.type}-${opt.id}`} value={`${opt.type}:${opt.id}`}>
+              {opt.type === "interface"
+                ? `${opt.device_name || `device-${opt.device_id}`} / ${opt.name}`
+                : `${opt.panel_name || `panel-${opt.panel_id}`} / ${opt.name}`}
+            </option>
           ))}
         </select>
         <button type="button" className="btn" onClick={() => void runLookup()}>Show Path</button>
@@ -138,8 +159,8 @@ export function CablingPage() {
             {cables.map((c) => (
               <tr key={c.id} className="border-b">
                 <td className="p-2">{c.id}</td>
-                <td className="p-2">{c.endpoint_a_type}:{c.endpoint_a_id}</td>
-                <td className="p-2">{c.endpoint_b_type}:{c.endpoint_b_id}</td>
+                <td className="p-2">{endpointLabel(c.endpoint_a_type, c.endpoint_a_id)}</td>
+                <td className="p-2">{endpointLabel(c.endpoint_b_type, c.endpoint_b_id)}</td>
                 <td className="p-2">{c.cable_type}</td>
                 <td className="p-2">{c.label || "-"}</td>
               </tr>
