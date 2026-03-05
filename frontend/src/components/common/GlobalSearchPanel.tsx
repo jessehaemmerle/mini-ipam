@@ -11,6 +11,7 @@ type SearchResult = {
   devices: SearchBucket;
   racks: SearchBucket;
   cables: SearchBucket;
+  patch_ports?: SearchBucket;
 };
 
 const EMPTY_RESULT: SearchResult = {
@@ -20,6 +21,7 @@ const EMPTY_RESULT: SearchResult = {
   devices: [],
   racks: [],
   cables: [],
+  patch_ports: [],
 };
 
 function valueToString(value: unknown): string {
@@ -43,7 +45,8 @@ export function GlobalSearchPanel() {
     result.vlans.length > 0 ||
     result.devices.length > 0 ||
     result.racks.length > 0 ||
-    result.cables.length > 0;
+    result.cables.length > 0 ||
+    (result.patch_ports?.length || 0) > 0;
 
   const runSearch = async () => {
     if (!query.trim()) {
@@ -194,9 +197,18 @@ export function GlobalSearchPanel() {
               </div>
             ))}
           </div>
+          <div>
+            <p className="mb-1 font-semibold">Patch Ports ({result.patch_ports?.length || 0})</p>
+            {(result.patch_ports || []).map((item) => (
+              <div key={`patch-${valueToString(item.id)}`} className="mb-1 flex flex-wrap items-center gap-2 border-b p-1">
+                <span>{valueToString(item.front_port_name)} / {valueToString(item.back_port_name)}</span>
+                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => navigate("/cabling")}>Open</button>
+                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => void copyValue(valueToString(item.front_port_name))}>Copy</button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 }
-

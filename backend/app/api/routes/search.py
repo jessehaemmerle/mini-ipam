@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_roles
 from app.db.session import get_db
-from app.models.entities import Cable, Device, IPAddress, Prefix, Rack, RoleEnum, VLAN
+from app.models.entities import Cable, Device, IPAddress, PatchPort, Prefix, Rack, RoleEnum, VLAN
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -19,5 +19,6 @@ def global_search(q: str, db: Session = Depends(get_db), _=Depends(require_roles
         "devices": db.query(Device).filter(or_(Device.name.ilike(term), Device.asset_tag.ilike(term), Device.serial.ilike(term))).limit(20).all(),
         "racks": db.query(Rack).filter(Rack.name.ilike(term)).limit(20).all(),
         "cables": db.query(Cable).filter(Cable.label.ilike(term)).limit(20).all(),
+        "patch_ports": db.query(PatchPort).filter(or_(PatchPort.front_port_name.ilike(term), PatchPort.back_port_name.ilike(term))).limit(20).all(),
     }
 
