@@ -28,6 +28,10 @@ class DeviceCreate(BaseModel):
     status: DeviceStatus = DeviceStatus.active
     site_id: int | None = None
     rack_id: int | None = None
+    rack_u_start: int | None = None
+    rack_u_height: int = 1
+    rack_face: str = "front"
+    rack_label: str | None = None
 
 
 class InterfaceCreate(BaseModel):

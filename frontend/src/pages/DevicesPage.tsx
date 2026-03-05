@@ -9,7 +9,14 @@ export function DevicesPage() {
   const [racks, setRacks] = useState<Rack[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<DeviceDetail | null>(null);
-  const [form, setForm] = useState({ name: "", role: "server", rack_id: "" as number | "" });
+  const [form, setForm] = useState({
+    name: "",
+    role: "server",
+    rack_id: "" as number | "",
+    rack_u_start: 1,
+    rack_u_height: 1,
+    rack_face: "front",
+  });
   const [rackTargets, setRackTargets] = useState<Record<number, number | "">>({});
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -58,8 +65,18 @@ export function DevicesPage() {
         role: form.role,
         status: "active",
         rack_id: form.rack_id === "" ? null : form.rack_id,
+        rack_u_start: form.rack_id === "" ? null : form.rack_u_start,
+        rack_u_height: form.rack_u_height,
+        rack_face: form.rack_face,
       });
-      setForm({ name: "", role: "server", rack_id: "" });
+      setForm({
+        name: "",
+        role: "server",
+        rack_id: "",
+        rack_u_start: 1,
+        rack_u_height: 1,
+        rack_face: "front",
+      });
       await load();
       setMessage("Device gespeichert.");
       setError("");
@@ -138,6 +155,33 @@ export function DevicesPage() {
           {racks.map((rack) => (
             <option key={rack.id} value={rack.id}>{rack.name}</option>
           ))}
+        </select>
+        <input
+          className="input w-24"
+          type="number"
+          min={1}
+          value={form.rack_u_start}
+          disabled={form.rack_id === ""}
+          onChange={(e) => setForm({ ...form, rack_u_start: Number(e.target.value) })}
+          placeholder="U-Start"
+        />
+        <input
+          className="input w-24"
+          type="number"
+          min={1}
+          value={form.rack_u_height}
+          disabled={form.rack_id === ""}
+          onChange={(e) => setForm({ ...form, rack_u_height: Number(e.target.value) })}
+          placeholder="Hoehe U"
+        />
+        <select
+          className="input"
+          value={form.rack_face}
+          disabled={form.rack_id === ""}
+          onChange={(e) => setForm({ ...form, rack_face: e.target.value })}
+        >
+          <option value="front">front</option>
+          <option value="rear">rear</option>
         </select>
         <button className="btn" type="submit">Add</button>
       </form>

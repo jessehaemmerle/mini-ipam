@@ -38,6 +38,42 @@ from app.services.audit import record_change, stamp_change
 router = APIRouter(prefix="/dcim", tags=["dcim"])
 
 
+def _validate_rack_placement(
+    db: Session,
+    *,
+    rack_id: int,
+    u_start: int,
+    u_height: int,
+    face: str,
+    ignore_device_id: int | None = None,
+) -> None:
+    rack = db.query(Rack).filter(Rack.id == rack_id).first()
+    if not rack:
+        raise HTTPException(status_code=404, detail="Rack not found")
+    if u_start < 1 or u_start + u_height - 1 > rack.height_u:
+        raise HTTPException(status_code=400, detail="Placement out of rack bounds")
+
+    placements = db.query(RackPlacement).filter(RackPlacement.rack_id == rack_id, RackPlacement.face == face).all()
+    for placement in placements:
+        if ignore_device_id is not None and placement.device_id == ignore_device_id:
+            continue
+        overlap = not (
+            u_start + u_height - 1 < placement.u_start
+            or u_start > placement.u_start + placement.u_height - 1
+        )
+        if overlap:
+            raise HTTPException(status_code=409, detail="Placement overlaps existing device")
+
+    reserved = db.query(ReservedUSlot).filter(ReservedUSlot.rack_id == rack_id).all()
+    for slot in reserved:
+        overlap = not (
+            u_start + u_height - 1 < slot.u_start
+            or u_start > slot.u_start + slot.u_height - 1
+        )
+        if overlap:
+            raise HTTPException(status_code=409, detail="Placement overlaps reserved slots")
+
+
 @router.get("/sites")
 def list_sites(db: Session = Depends(get_db), _=Depends(require_roles(RoleEnum.admin, RoleEnum.editor, RoleEnum.readonly))):
     return db.query(Site).order_by(Site.name.asc()).all()
@@ -195,9 +231,32 @@ def device_detail(
 
 @router.post("/devices")
 def create_device(payload: DeviceCreate, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
-    obj = Device(**payload.model_dump())
+    device_data = payload.model_dump(exclude={"rack_u_start", "rack_u_height", "rack_face", "rack_label"})
+    obj = Device(**device_data)
     stamp_change(obj, user.username)
     db.add(obj)
+    db.flush()
+
+    if payload.rack_id is not None and payload.rack_u_start is not None:
+        _validate_rack_placement(
+            db,
+            rack_id=payload.rack_id,
+            u_start=payload.rack_u_start,
+            u_height=payload.rack_u_height,
+            face=payload.rack_face,
+            ignore_device_id=obj.id,
+        )
+        placement = RackPlacement(
+            rack_id=payload.rack_id,
+            device_id=obj.id,
+            u_start=payload.rack_u_start,
+            u_height=payload.rack_u_height,
+            face=payload.rack_face,
+            label=payload.rack_label,
+        )
+        stamp_change(placement, user.username)
+        db.add(placement)
+
     db.commit()
     db.refresh(obj)
     record_change(db, username=user.username, action="create", object_type="device", object_id=obj.id, diff=payload.model_dump())
@@ -221,7 +280,7 @@ def update_device(device_id: int, payload: DeviceCreate, db: Session = Depends(g
         "site_id": obj.site_id,
         "rack_id": obj.rack_id,
     }
-    for key, value in payload.model_dump().items():
+    for key, value in payload.model_dump(exclude={"rack_u_start", "rack_u_height", "rack_face", "rack_label"}).items():
         setattr(obj, key, value)
     stamp_change(obj, user.username)
     db.commit()
@@ -330,29 +389,14 @@ def create_cable(payload: CableCreate, db: Session = Depends(get_db), user=Depen
 
 @router.post("/rack-placements")
 def place_device(payload: RackPlacementCreate, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
-    rack = db.query(Rack).filter(Rack.id == payload.rack_id).first()
-    if not rack:
-        raise HTTPException(status_code=404, detail="Rack not found")
-    if payload.u_start < 1 or payload.u_start + payload.u_height - 1 > rack.height_u:
-        raise HTTPException(status_code=400, detail="Placement out of rack bounds")
-
-    placements = db.query(RackPlacement).filter(RackPlacement.rack_id == payload.rack_id, RackPlacement.face == payload.face).all()
-    for placement in placements:
-        overlap = not (
-            payload.u_start + payload.u_height - 1 < placement.u_start
-            or payload.u_start > placement.u_start + placement.u_height - 1
-        )
-        if overlap:
-            raise HTTPException(status_code=409, detail="Placement overlaps existing device")
-
-    reserved = db.query(ReservedUSlot).filter(ReservedUSlot.rack_id == payload.rack_id).all()
-    for slot in reserved:
-        overlap = not (
-            payload.u_start + payload.u_height - 1 < slot.u_start
-            or payload.u_start > slot.u_start + slot.u_height - 1
-        )
-        if overlap:
-            raise HTTPException(status_code=409, detail="Placement overlaps reserved slots")
+    _validate_rack_placement(
+        db,
+        rack_id=payload.rack_id,
+        u_start=payload.u_start,
+        u_height=payload.u_height,
+        face=payload.face,
+        ignore_device_id=payload.device_id,
+    )
 
     obj = RackPlacement(**payload.model_dump())
     stamp_change(obj, user.username)
