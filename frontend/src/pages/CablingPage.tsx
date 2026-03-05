@@ -26,8 +26,10 @@ export function CablingPage() {
 
   const [lookupKey, setLookupKey] = useState("");
   const [form, setForm] = useState({
+    site_a: "",
     device_a: "",
     endpoint_a_key: "",
+    site_b: "",
     device_b: "",
     endpoint_b_key: "",
     cable_type: "cat6",
@@ -46,32 +48,61 @@ export function CablingPage() {
     });
     return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
   }, [endpointOptions]);
+  const deviceSiteMap = useMemo(() => {
+    const map = new Map<string, string>();
+    endpointOptions.forEach((opt) => {
+      const key = opt.type === "interface" ? `device:${opt.device_id}` : `panel:${opt.panel_id}`;
+      if (key && opt.site_id) map.set(key, String(opt.site_id));
+    });
+    return map;
+  }, [endpointOptions]);
+  const siteChoices = useMemo(() => {
+    const map = new Map<number, string>();
+    endpointOptions.forEach((opt) => {
+      if (opt.site_id && opt.site_name) map.set(opt.site_id, opt.site_name);
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [endpointOptions]);
   const endpointAOptions = useMemo(
     () =>
       endpointOptions.filter((opt) => {
+        if (form.site_a && String(opt.site_id) !== form.site_a) return false;
         if (!form.device_a) return true;
         if (form.device_a.startsWith("device:")) return opt.type === "interface" && `device:${opt.device_id}` === form.device_a;
         return opt.type === "patch_port" && `panel:${opt.panel_id}` === form.device_a;
       }),
-    [endpointOptions, form.device_a]
+    [endpointOptions, form.site_a, form.device_a]
   );
   const endpointBOptions = useMemo(
     () =>
       endpointOptions.filter((opt) => {
+        if (form.site_b && String(opt.site_id) !== form.site_b) return false;
         if (!form.device_b) return true;
         if (form.device_b.startsWith("device:")) return opt.type === "interface" && `device:${opt.device_id}` === form.device_b;
         return opt.type === "patch_port" && `panel:${opt.panel_id}` === form.device_b;
       }),
-    [endpointOptions, form.device_b]
+    [endpointOptions, form.site_b, form.device_b]
   );
+  const deviceAChoices = useMemo(() => {
+    return deviceChoices.filter((d) => {
+      if (!form.site_a) return true;
+      return deviceSiteMap.get(d.value) === form.site_a;
+    });
+  }, [deviceChoices, deviceSiteMap, form.site_a]);
+  const deviceBChoices = useMemo(() => {
+    return deviceChoices.filter((d) => {
+      if (!form.site_b) return true;
+      return deviceSiteMap.get(d.value) === form.site_b;
+    });
+  }, [deviceChoices, deviceSiteMap, form.site_b]);
 
   const endpointLabel = (type: string, id: number) => {
     const opt = optionByKey[`${type}:${id}`];
     if (!opt) return `${type}:${id}`;
     if (opt.type === "interface") {
-      return `${opt.device_name || `device-${opt.device_id}`} / ${opt.name}`;
+      return `${opt.site_name ? `[${opt.site_name}] ` : ""}${opt.device_name || `device-${opt.device_id}`} / ${opt.name}`;
     }
-    return `${opt.panel_name || `panel-${opt.panel_id}`} / ${opt.name}`;
+    return `${opt.site_name ? `[${opt.site_name}] ` : ""}${opt.panel_name || `panel-${opt.panel_id}`} / ${opt.name}`;
   };
 
   const topologyData = useMemo(() => {
@@ -99,8 +130,10 @@ export function CablingPage() {
     setLookupKey((prev) => prev || defaultKey);
     setForm((prev) => ({
       ...prev,
+      site_a: prev.site_a || "",
       device_a: prev.device_a || "",
       endpoint_a_key: prev.endpoint_a_key || defaultKey,
+      site_b: prev.site_b || "",
       device_b: prev.device_b || "",
       endpoint_b_key: prev.endpoint_b_key || (merged[1] ? `${merged[1].type}:${merged[1].id}` : defaultKey),
     }));
@@ -158,10 +191,19 @@ export function CablingPage() {
       <PageHeader title="Cabling" subtitle="Kabel zwischen Interfaces und Patchports mit Path-Ansicht" />
       <form className="card flex flex-wrap items-end gap-2" onSubmit={submit}>
         <div>
+          <label className="muted">Site A</label>
+          <select className="input ml-2" value={form.site_a} onChange={(e) => setForm({ ...form, site_a: e.target.value, device_a: "", endpoint_a_key: "" })}>
+            <option value="">alle</option>
+            {siteChoices.map((s) => (
+              <option key={`site-a-${s.id}`} value={String(s.id)}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
           <label className="muted">Geraet/Panel A</label>
           <select className="input ml-2" value={form.device_a} onChange={(e) => setForm({ ...form, device_a: e.target.value, endpoint_a_key: "" })}>
             <option value="">alle</option>
-            {deviceChoices.map((d) => (
+            {deviceAChoices.map((d) => (
               <option key={`dev-a-${d.value}`} value={d.value}>{d.label}</option>
             ))}
           </select>
@@ -173,9 +215,18 @@ export function CablingPage() {
             {endpointAOptions.map((opt) => (
               <option key={`a-${opt.type}-${opt.id}`} value={`${opt.type}:${opt.id}`}>
                 {opt.type === "interface"
-                  ? `${opt.device_name || `device-${opt.device_id}`} / ${opt.name}`
-                  : `${opt.panel_name || `panel-${opt.panel_id}`} / ${opt.name}`}
+                  ? `${opt.site_name ? `[${opt.site_name}] ` : ""}${opt.device_name || `device-${opt.device_id}`} / ${opt.name}`
+                  : `${opt.site_name ? `[${opt.site_name}] ` : ""}${opt.panel_name || `panel-${opt.panel_id}`} / ${opt.name}`}
               </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="muted">Site B</label>
+          <select className="input ml-2" value={form.site_b} onChange={(e) => setForm({ ...form, site_b: e.target.value, device_b: "", endpoint_b_key: "" })}>
+            <option value="">alle</option>
+            {siteChoices.map((s) => (
+              <option key={`site-b-${s.id}`} value={String(s.id)}>{s.name}</option>
             ))}
           </select>
         </div>
@@ -183,7 +234,7 @@ export function CablingPage() {
           <label className="muted">Geraet/Panel B</label>
           <select className="input ml-2" value={form.device_b} onChange={(e) => setForm({ ...form, device_b: e.target.value, endpoint_b_key: "" })}>
             <option value="">alle</option>
-            {deviceChoices.map((d) => (
+            {deviceBChoices.map((d) => (
               <option key={`dev-b-${d.value}`} value={d.value}>{d.label}</option>
             ))}
           </select>
@@ -195,8 +246,8 @@ export function CablingPage() {
             {endpointBOptions.map((opt) => (
               <option key={`b-${opt.type}-${opt.id}`} value={`${opt.type}:${opt.id}`}>
                 {opt.type === "interface"
-                  ? `${opt.device_name || `device-${opt.device_id}`} / ${opt.name}`
-                  : `${opt.panel_name || `panel-${opt.panel_id}`} / ${opt.name}`}
+                  ? `${opt.site_name ? `[${opt.site_name}] ` : ""}${opt.device_name || `device-${opt.device_id}`} / ${opt.name}`
+                  : `${opt.site_name ? `[${opt.site_name}] ` : ""}${opt.panel_name || `panel-${opt.panel_id}`} / ${opt.name}`}
               </option>
             ))}
           </select>
@@ -214,8 +265,8 @@ export function CablingPage() {
           {endpointOptions.map((opt) => (
             <option key={`lookup-${opt.type}-${opt.id}`} value={`${opt.type}:${opt.id}`}>
               {opt.type === "interface"
-                ? `${opt.device_name || `device-${opt.device_id}`} / ${opt.name}`
-                : `${opt.panel_name || `panel-${opt.panel_id}`} / ${opt.name}`}
+                ? `${opt.site_name ? `[${opt.site_name}] ` : ""}${opt.device_name || `device-${opt.device_id}`} / ${opt.name}`
+                : `${opt.site_name ? `[${opt.site_name}] ` : ""}${opt.panel_name || `panel-${opt.panel_id}`} / ${opt.name}`}
             </option>
           ))}
         </select>

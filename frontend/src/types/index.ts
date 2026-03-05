@@ -100,6 +100,8 @@ export type EndpointOption = {
   device_name?: string;
   panel_id?: number;
   panel_name?: string;
+  site_id?: number | null;
+  site_name?: string | null;
 };
 
 export type PowerInlet = {
