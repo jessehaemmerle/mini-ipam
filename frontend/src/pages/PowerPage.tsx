@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { extractApiError, get, post } from "../api/client";
+import { PowerGraph } from "../components/power/PowerGraph";
 import { Device, PDUOutlet, PowerConnection, PowerInlet, Rack } from "../types";
 import { PageHeader } from "../components/common/PageHeader";
 
@@ -31,6 +32,28 @@ export function PowerPage() {
     () => Object.fromEntries(outlets.map((o) => [o.id, o])),
     [outlets]
   );
+  const powerGraphData = useMemo(() => {
+    const nodeMap = new Map<string, { id: string; label: string }>();
+    const edges = connections.map((c) => {
+      let from = `${c.src_type}:${c.src_id}`;
+      let to = `${c.dst_type}:${c.dst_id}`;
+      let fromLabel = from;
+      let toLabel = to;
+
+      if (c.src_type === "power_inlet" && inletById[c.src_id]) {
+        const inlet = inletById[c.src_id];
+        fromLabel = `${deviceById[inlet.device_id] || `device-${inlet.device_id}`} / ${inlet.name}`;
+      }
+      if (c.dst_type === "pdu_outlet" && outletById[c.dst_id]) {
+        const outlet = outletById[c.dst_id];
+        toLabel = `${deviceById[outlet.pdu_device_id] || `pdu-${outlet.pdu_device_id}`} / ${outlet.name}`;
+      }
+      nodeMap.set(from, { id: from, label: fromLabel });
+      nodeMap.set(to, { id: to, label: toLabel });
+      return { from, to };
+    });
+    return { nodes: Array.from(nodeMap.values()), edges };
+  }, [connections, inletById, outletById, deviceById]);
 
   const load = async () => {
     const [deviceData, rackData, inletData, outletData, connectionData] = await Promise.all([
@@ -176,6 +199,13 @@ export function PowerPage() {
           </tbody>
         </table>
       </div>
+
+      {powerGraphData.nodes.length > 0 && (
+        <div className="card">
+          <h3 className="mb-2 text-lg font-semibold">Power Topology</h3>
+          <PowerGraph nodes={powerGraphData.nodes} edges={powerGraphData.edges} />
+        </div>
+      )}
 
       <div className="card flex gap-2">
         <select className="input" value={rackId} onChange={(e) => setRackId(Number(e.target.value))}>

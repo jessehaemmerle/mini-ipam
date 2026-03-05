@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { extractApiError, get, post } from "../api/client";
 import { CablePathGraph } from "../components/cable/CablePathGraph";
+import { CableTopologyGraph } from "../components/cable/CableTopologyGraph";
 import { PageHeader } from "../components/common/PageHeader";
 import { Cable, EndpointOption } from "../types";
 
@@ -39,6 +40,18 @@ export function CablingPage() {
     }
     return `${opt.panel_name || `panel-${opt.panel_id}`} / ${opt.name}`;
   };
+
+  const topologyData = useMemo(() => {
+    const nodeMap = new Map<string, { id: string; label: string }>();
+    const edges = cables.map((c) => {
+      const from = `${c.endpoint_a_type}:${c.endpoint_a_id}`;
+      const to = `${c.endpoint_b_type}:${c.endpoint_b_id}`;
+      nodeMap.set(from, { id: from, label: endpointLabel(c.endpoint_a_type, c.endpoint_a_id) });
+      nodeMap.set(to, { id: to, label: endpointLabel(c.endpoint_b_type, c.endpoint_b_id) });
+      return { from, to, label: c.label || c.cable_type };
+    });
+    return { nodes: Array.from(nodeMap.values()), edges };
+  }, [cables, endpointOptions]);
 
   const load = async () => {
     const [options, cableData] = await Promise.all([
@@ -168,6 +181,13 @@ export function CablingPage() {
           </tbody>
         </table>
       </div>
+
+      {topologyData.nodes.length > 0 && (
+        <div className="card">
+          <h3 className="mb-2 text-lg font-semibold">Cable Topology</h3>
+          <CableTopologyGraph nodes={topologyData.nodes} edges={topologyData.edges} />
+        </div>
+      )}
 
       {path && (
         <>
