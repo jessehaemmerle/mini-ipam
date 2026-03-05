@@ -1,10 +1,10 @@
 import { FormEvent, useState } from "react";
 
-import { formPost, get, post } from "../api/client";
+import { formPost, post } from "../api/client";
+import { GlobalSearchPanel } from "../components/common/GlobalSearchPanel";
 import { PageHeader } from "../components/common/PageHeader";
 
 export function AdminPage() {
-  const [query, setQuery] = useState("");
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [login, setLogin] = useState({ username: "admin", password: "admin" });
   const [file, setFile] = useState<File | null>(null);
@@ -13,10 +13,6 @@ export function AdminPage() {
   const submitLogin = async (e: FormEvent) => {
     e.preventDefault();
     await post("/auth/login", login);
-  };
-
-  const submitSearch = async () => {
-    setResult(await get<Record<string, unknown>>("/search", { q: query }));
   };
 
   const importCsv = async () => {
@@ -40,10 +36,7 @@ export function AdminPage() {
         <button className="btn" type="submit">Login</button>
       </form>
 
-      <div className="card flex gap-2">
-        <input className="input flex-1" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search IP/Prefix/VLAN/Device/Rack/Cable" />
-        <button className="btn" onClick={submitSearch}>Search</button>
-      </div>
+      <GlobalSearchPanel />
 
       <div className="card flex flex-wrap gap-2">
         <select className="input" value={importType} onChange={(e) => setImportType(e.target.value as "prefixes" | "ipaddresses" | "vlans")}>
