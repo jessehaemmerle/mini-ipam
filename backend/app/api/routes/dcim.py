@@ -55,6 +55,34 @@ def create_site(payload: SiteCreate, db: Session = Depends(get_db), user=Depends
     return obj
 
 
+@router.put("/sites/{site_id}")
+def update_site(site_id: int, payload: SiteCreate, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
+    obj = db.query(Site).filter(Site.id == site_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Site not found")
+    old = {"name": obj.name, "code": obj.code, "address": obj.address, "description": obj.description}
+    for key, value in payload.model_dump().items():
+        setattr(obj, key, value)
+    stamp_change(obj, user.username)
+    db.commit()
+    db.refresh(obj)
+    record_change(db, username=user.username, action="update", object_type="site", object_id=obj.id, diff={"old": old, "new": payload.model_dump()})
+    db.commit()
+    return obj
+
+
+@router.delete("/sites/{site_id}")
+def delete_site(site_id: int, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
+    obj = db.query(Site).filter(Site.id == site_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Site not found")
+    obj_id = obj.id
+    db.delete(obj)
+    record_change(db, username=user.username, action="delete", object_type="site", object_id=obj_id, diff=None)
+    db.commit()
+    return {"deleted": obj_id}
+
+
 @router.get("/racks")
 def list_racks(db: Session = Depends(get_db), _=Depends(require_roles(RoleEnum.admin, RoleEnum.editor, RoleEnum.readonly))):
     return db.query(Rack).order_by(Rack.name.asc()).all()
@@ -68,6 +96,34 @@ def create_rack(payload: RackCreate, db: Session = Depends(get_db), user=Depends
     db.commit()
     db.refresh(obj)
     return obj
+
+
+@router.put("/racks/{rack_id}")
+def update_rack(rack_id: int, payload: RackCreate, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
+    obj = db.query(Rack).filter(Rack.id == rack_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Rack not found")
+    old = {"site_id": obj.site_id, "room_id": obj.room_id, "name": obj.name, "height_u": obj.height_u, "description": obj.description}
+    for key, value in payload.model_dump().items():
+        setattr(obj, key, value)
+    stamp_change(obj, user.username)
+    db.commit()
+    db.refresh(obj)
+    record_change(db, username=user.username, action="update", object_type="rack", object_id=obj.id, diff={"old": old, "new": payload.model_dump()})
+    db.commit()
+    return obj
+
+
+@router.delete("/racks/{rack_id}")
+def delete_rack(rack_id: int, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
+    obj = db.query(Rack).filter(Rack.id == rack_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Rack not found")
+    obj_id = obj.id
+    db.delete(obj)
+    record_change(db, username=user.username, action="delete", object_type="rack", object_id=obj_id, diff=None)
+    db.commit()
+    return {"deleted": obj_id}
 
 
 @router.get("/devices")
@@ -147,6 +203,44 @@ def create_device(payload: DeviceCreate, db: Session = Depends(get_db), user=Dep
     record_change(db, username=user.username, action="create", object_type="device", object_id=obj.id, diff=payload.model_dump())
     db.commit()
     return obj
+
+
+@router.put("/devices/{device_id}")
+def update_device(device_id: int, payload: DeviceCreate, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
+    obj = db.query(Device).filter(Device.id == device_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Device not found")
+    old = {
+        "name": obj.name,
+        "asset_tag": obj.asset_tag,
+        "serial": obj.serial,
+        "manufacturer": obj.manufacturer,
+        "model": obj.model,
+        "role": obj.role,
+        "status": obj.status,
+        "site_id": obj.site_id,
+        "rack_id": obj.rack_id,
+    }
+    for key, value in payload.model_dump().items():
+        setattr(obj, key, value)
+    stamp_change(obj, user.username)
+    db.commit()
+    db.refresh(obj)
+    record_change(db, username=user.username, action="update", object_type="device", object_id=obj.id, diff={"old": old, "new": payload.model_dump()})
+    db.commit()
+    return obj
+
+
+@router.delete("/devices/{device_id}")
+def delete_device(device_id: int, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
+    obj = db.query(Device).filter(Device.id == device_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Device not found")
+    obj_id = obj.id
+    db.delete(obj)
+    record_change(db, username=user.username, action="delete", object_type="device", object_id=obj_id, diff=None)
+    db.commit()
+    return {"deleted": obj_id}
 
 
 @router.get("/interfaces")

@@ -8,6 +8,7 @@ IPAM-first Tool mit grundlegenden DCIM-Funktionen (Sites, Racks, Cabling inkl. P
 - VRFs (inkl. Seed `default`)
 - Prefixe (CIDR v4/v6, Utilization, Next Free IP, Split, Merge)
 - Prefix Detail View API (`/api/ipam/prefixes/{id}/detail`): Overview, IP-Liste, Utilization, History
+- Edit/Delete fuer VRF, Prefix, IP, VLAN (`PUT/DELETE` Endpoints)
 - IP-Adressen (Status, DNS, Assignment, VRF Duplicate Check, optional out-of-scope)
 - VLANs (VID 1-4094, Site Scope, Konfliktcheck)
 - Bulk Reserve IP Range
@@ -19,6 +20,7 @@ IPAM-first Tool mit grundlegenden DCIM-Funktionen (Sites, Racks, Cabling inkl. P
 - Rack Detail View API (`/api/dcim/racks/{id}/detail`) inkl. Missing Power/Cable Indicators
 - Devices + Interfaces + Patch Ports
 - Device Detail View API (`/api/dcim/devices/{id}/detail`) mit Interfaces, IPs, Cabling, Power, History
+- Edit/Delete fuer Site, Rack, Device (`PUT/DELETE` Endpoints)
 - Cabling inkl. Single-Connection-Validation (mit `allow_multi` Override)
 - Cable Path Lookup (Graph Traversal + Tabellenpfad)
 - Power Entities: Inlets, PDU Outlets, Power Connections, Rack Power Map

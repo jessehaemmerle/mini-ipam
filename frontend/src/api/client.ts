@@ -17,6 +17,16 @@ export async function post<T>(url: string, data?: unknown): Promise<T> {
   return res.data;
 }
 
+export async function put<T>(url: string, data?: unknown): Promise<T> {
+  const res = await api.put<T>(url, data);
+  return res.data;
+}
+
+export async function del<T>(url: string): Promise<T> {
+  const res = await api.delete<T>(url);
+  return res.data;
+}
+
 export async function formPost<T>(url: string, data: FormData): Promise<T> {
   const res = await api.post<T>(url, data, {
     headers: { "Content-Type": "multipart/form-data" }

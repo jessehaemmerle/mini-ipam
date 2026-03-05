@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 
-import { extractApiError, get, post } from "../api/client";
+import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
 import { IPAddress } from "../types";
 
@@ -34,6 +34,39 @@ export function IPsPage() {
     }
   };
 
+  const editIp = async (item: IPAddress) => {
+    const addr = window.prompt("IP Adresse", item.address);
+    if (!addr) return;
+    const dns = window.prompt("DNS Name", item.dns_name || "");
+    try {
+      await put(`/ipam/ips/${item.id}`, {
+        address: addr,
+        vrf_id: item.vrf_id,
+        status: item.status,
+        dns_name: dns || null,
+        description: item.description || null,
+        out_of_scope: false,
+        assigned_type: null,
+        assigned_id: null,
+      });
+      await load();
+      setMessage("IP aktualisiert.");
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+    }
+  };
+
+  const deleteIp = async (item: IPAddress) => {
+    if (!window.confirm(`IP ${item.address} wirklich löschen?`)) return;
+    try {
+      await del(`/ipam/ips/${item.id}`);
+      await load();
+      setMessage("IP gelöscht.");
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+    }
+  };
+
   return (
     <div className="space-y-4">
       <PageHeader title="IP Addresses" subtitle="Assignments, Reservierungen und DNS-Name" />
@@ -51,6 +84,7 @@ export function IPsPage() {
               <th className="p-2">Address</th>
               <th className="p-2">Status</th>
               <th className="p-2">DNS</th>
+              <th className="p-2">Aktionen</th>
             </tr>
           </thead>
           <tbody>
@@ -59,6 +93,10 @@ export function IPsPage() {
                 <td className="p-2 font-semibold">{item.address}</td>
                 <td className="p-2">{item.status}</td>
                 <td className="p-2">{item.dns_name || "-"}</td>
+                <td className="p-2">
+                  <button className="mr-2 rounded border px-2 py-1 text-xs" onClick={() => void editIp(item)}>Edit</button>
+                  <button className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={() => void deleteIp(item)}>Delete</button>
+                </td>
               </tr>
             ))}
           </tbody>

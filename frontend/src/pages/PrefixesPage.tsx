@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 
-import { get, post } from "../api/client";
+import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
 import { Prefix, PrefixDetail, Vrf } from "../types";
 
@@ -11,6 +11,8 @@ export function PrefixesPage() {
   const [detail, setDetail] = useState<PrefixDetail | null>(null);
   const [tab, setTab] = useState<"overview" | "ips" | "history">("overview");
   const [form, setForm] = useState({ cidr: "", vrf_id: 1, role: "LAN" });
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   const load = () => {
     get<Prefix[]>("/ipam/prefixes").then(setItems);
@@ -28,9 +30,59 @@ export function PrefixesPage() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    await post("/ipam/prefixes", { ...form, status: "active" });
-    setForm({ cidr: "", vrf_id: form.vrf_id, role: "LAN" });
-    load();
+    try {
+      await post("/ipam/prefixes", { ...form, status: "active" });
+      setForm({ cidr: "", vrf_id: form.vrf_id, role: "LAN" });
+      load();
+      setMessage("Prefix gespeichert.");
+      setError("");
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+      setMessage("");
+    }
+  };
+
+  const editPrefix = async (item: Prefix) => {
+    const cidr = window.prompt("CIDR", item.cidr);
+    if (!cidr) return;
+    const role = window.prompt("Role", item.role);
+    if (!role) return;
+    try {
+      await put(`/ipam/prefixes/${item.id}`, {
+        cidr,
+        vrf_id: item.vrf_id,
+        site_id: item.site_id ?? null,
+        role,
+        status: item.status,
+        description: item.description ?? null,
+      });
+      await load();
+      if (selectedId === item.id) {
+        loadDetail(item.id);
+      }
+      setMessage("Prefix aktualisiert.");
+      setError("");
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+      setMessage("");
+    }
+  };
+
+  const deletePrefix = async (item: Prefix) => {
+    if (!window.confirm(`Prefix ${item.cidr} wirklich löschen?`)) return;
+    try {
+      await del(`/ipam/prefixes/${item.id}`);
+      await load();
+      if (selectedId === item.id) {
+        setSelectedId(null);
+        setDetail(null);
+      }
+      setMessage("Prefix gelöscht.");
+      setError("");
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+      setMessage("");
+    }
   };
 
   return (
@@ -51,6 +103,8 @@ export function PrefixesPage() {
         </div>
         <button className="btn" type="submit">Quick Create</button>
       </form>
+      {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
+      {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
 
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
@@ -60,6 +114,7 @@ export function PrefixesPage() {
               <th className="p-2">VRF</th>
               <th className="p-2">Role</th>
               <th className="p-2">Status</th>
+              <th className="p-2">Aktionen</th>
             </tr>
           </thead>
           <tbody>
@@ -73,6 +128,10 @@ export function PrefixesPage() {
                 <td className="p-2">{item.vrf_id}</td>
                 <td className="p-2">{item.role}</td>
                 <td className="p-2">{item.status}</td>
+                <td className="p-2">
+                  <button className="mr-2 rounded border px-2 py-1 text-xs" onClick={(e) => { e.stopPropagation(); void editPrefix(item); }}>Edit</button>
+                  <button className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={(e) => { e.stopPropagation(); void deletePrefix(item); }}>Delete</button>
+                </td>
               </tr>
             ))}
           </tbody>

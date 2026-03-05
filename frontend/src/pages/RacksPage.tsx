@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-import { get, post } from "../api/client";
+import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
 import { RackDiagram } from "../components/rack/RackDiagram";
 import { Rack, RackDetail, RackPlacement } from "../types";
@@ -12,6 +12,8 @@ export function RacksPage() {
   const [selectedRack, setSelectedRack] = useState<number | null>(null);
   const [face, setFace] = useState<"front" | "rear">("front");
   const [form, setForm] = useState({ site_id: 1, name: "", height_u: 42 });
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   const load = async () => {
     const rackData = await get<Rack[]>("/dcim/racks");
@@ -25,16 +27,62 @@ export function RacksPage() {
   };
 
   useEffect(() => {
-    load();
+    void load();
   }, []);
 
   const rack = useMemo(() => racks.find((r) => r.id === selectedRack), [racks, selectedRack]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    await post("/dcim/racks", form);
-    setForm({ ...form, name: "" });
-    load();
+    try {
+      await post("/dcim/racks", form);
+      setForm({ ...form, name: "" });
+      await load();
+      setMessage("Rack gespeichert.");
+      setError("");
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+      setMessage("");
+    }
+  };
+
+  const editRack = async () => {
+    const current = racks.find((r) => r.id === selectedRack);
+    if (!current) return;
+    const name = window.prompt("Rack Name", current.name);
+    if (!name) return;
+    const height = window.prompt("Height U", String(current.height_u));
+    if (!height) return;
+    try {
+      await put(`/dcim/racks/${current.id}`, {
+        site_id: current.site_id,
+        room_id: null,
+        name,
+        height_u: Number(height),
+        description: null,
+      });
+      await load();
+      setMessage("Rack aktualisiert.");
+      setError("");
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+      setMessage("");
+    }
+  };
+
+  const deleteRack = async () => {
+    const current = racks.find((r) => r.id === selectedRack);
+    if (!current) return;
+    if (!window.confirm(`Rack ${current.name} wirklich loeschen?`)) return;
+    try {
+      await del(`/dcim/racks/${current.id}`);
+      await load();
+      setMessage("Rack geloescht.");
+      setError("");
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+      setMessage("");
+    }
   };
 
   return (
@@ -45,6 +93,8 @@ export function RacksPage() {
         <input className="input w-24" type="number" value={form.height_u} onChange={(e) => setForm({ ...form, height_u: Number(e.target.value) })} />
         <button className="btn" type="submit">Create Rack</button>
       </form>
+      {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
+      {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
 
       <div className="card flex flex-wrap items-center gap-2">
         <select
@@ -59,7 +109,9 @@ export function RacksPage() {
         >
           {racks.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
         </select>
-        <button className="btn" onClick={() => setFace(face === "front" ? "rear" : "front")}>Toggle {face === "front" ? "Rear" : "Front"}</button>
+        <button type="button" className="btn" onClick={() => setFace(face === "front" ? "rear" : "front")}>Toggle {face === "front" ? "Rear" : "Front"}</button>
+        <button type="button" className="rounded border px-3 py-2 text-sm" onClick={() => void editRack()}>Edit Rack</button>
+        <button type="button" className="rounded border border-red-300 px-3 py-2 text-sm text-red-700" onClick={() => void deleteRack()}>Delete Rack</button>
       </div>
 
       {rack && <RackDiagram heightU={rack.height_u} placements={placements} face={face} />}
@@ -89,4 +141,3 @@ export function RacksPage() {
     </div>
   );
 }
-

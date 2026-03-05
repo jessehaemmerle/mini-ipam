@@ -35,6 +35,34 @@ def create_vrf(payload: VrfCreate, db: Session = Depends(get_db), user=Depends(r
     return obj
 
 
+@router.put("/vrfs/{vrf_id}")
+def update_vrf(vrf_id: int, payload: VrfCreate, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
+    obj = db.query(Vrf).filter(Vrf.id == vrf_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="VRF not found")
+    old = {"name": obj.name, "description": obj.description}
+    obj.name = payload.name
+    obj.description = payload.description
+    stamp_change(obj, user.username)
+    db.commit()
+    db.refresh(obj)
+    record_change(db, username=user.username, action="update", object_type="vrf", object_id=obj.id, diff={"old": old, "new": payload.model_dump()})
+    db.commit()
+    return obj
+
+
+@router.delete("/vrfs/{vrf_id}")
+def delete_vrf(vrf_id: int, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
+    obj = db.query(Vrf).filter(Vrf.id == vrf_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="VRF not found")
+    obj_id = obj.id
+    db.delete(obj)
+    record_change(db, username=user.username, action="delete", object_type="vrf", object_id=obj_id, diff=None)
+    db.commit()
+    return {"deleted": obj_id}
+
+
 @router.get("/prefixes")
 def list_prefixes(
     db: Session = Depends(get_db),
@@ -76,6 +104,42 @@ def create_prefix(payload: PrefixCreate, db: Session = Depends(get_db), user=Dep
     record_change(db, username=user.username, action="create", object_type="prefix", object_id=obj.id, diff=payload.model_dump())
     db.commit()
     return obj
+
+
+@router.put("/prefixes/{prefix_id}")
+def update_prefix(prefix_id: int, payload: PrefixCreate, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
+    obj = db.query(Prefix).filter(Prefix.id == prefix_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Prefix not found")
+    parse_cidr(payload.cidr)
+    duplicate = (
+        db.query(Prefix)
+        .filter(Prefix.id != prefix_id, Prefix.cidr == payload.cidr, Prefix.vrf_id == payload.vrf_id)
+        .first()
+    )
+    if duplicate:
+        raise HTTPException(status_code=409, detail="Prefix already exists in VRF")
+    old = {"cidr": obj.cidr, "vrf_id": obj.vrf_id, "site_id": obj.site_id, "role": obj.role, "status": obj.status, "description": obj.description}
+    for key, value in payload.model_dump().items():
+        setattr(obj, key, value)
+    stamp_change(obj, user.username)
+    db.commit()
+    db.refresh(obj)
+    record_change(db, username=user.username, action="update", object_type="prefix", object_id=obj.id, diff={"old": old, "new": payload.model_dump()})
+    db.commit()
+    return obj
+
+
+@router.delete("/prefixes/{prefix_id}")
+def delete_prefix(prefix_id: int, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
+    obj = db.query(Prefix).filter(Prefix.id == prefix_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Prefix not found")
+    obj_id = obj.id
+    db.delete(obj)
+    record_change(db, username=user.username, action="delete", object_type="prefix", object_id=obj_id, diff=None)
+    db.commit()
+    return {"deleted": obj_id}
 
 
 @router.get("/prefixes/{prefix_id}/utilization")
@@ -195,6 +259,42 @@ def create_ip(payload: IPCreate, db: Session = Depends(get_db), user=Depends(req
     return obj
 
 
+@router.put("/ips/{ip_id}")
+def update_ip(ip_id: int, payload: IPCreate, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
+    obj = db.query(IPAddress).filter(IPAddress.id == ip_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="IP not found")
+    parse_ip(payload.address)
+    duplicate = (
+        db.query(IPAddress)
+        .filter(IPAddress.id != ip_id, IPAddress.address == payload.address, IPAddress.vrf_id == payload.vrf_id)
+        .first()
+    )
+    if duplicate:
+        raise HTTPException(status_code=409, detail="Duplicate IP in VRF")
+    old = {"address": obj.address, "vrf_id": obj.vrf_id, "status": obj.status, "dns_name": obj.dns_name, "description": obj.description, "assigned_type": obj.assigned_type, "assigned_id": obj.assigned_id}
+    for key, value in payload.model_dump().items():
+        setattr(obj, key, value)
+    stamp_change(obj, user.username)
+    db.commit()
+    db.refresh(obj)
+    record_change(db, username=user.username, action="update", object_type="ip_address", object_id=obj.id, diff={"old": old, "new": payload.model_dump()})
+    db.commit()
+    return obj
+
+
+@router.delete("/ips/{ip_id}")
+def delete_ip(ip_id: int, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
+    obj = db.query(IPAddress).filter(IPAddress.id == ip_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="IP not found")
+    obj_id = obj.id
+    db.delete(obj)
+    record_change(db, username=user.username, action="delete", object_type="ip_address", object_id=obj_id, diff=None)
+    db.commit()
+    return {"deleted": obj_id}
+
+
 @router.post("/ips/bulk-reserve")
 def bulk_reserve(payload: BulkReserveRequest, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
     start_ip = parse_ip(payload.start_ip)
@@ -243,6 +343,41 @@ def create_vlan(payload: VLANCreate, db: Session = Depends(get_db), user=Depends
     record_change(db, username=user.username, action="create", object_type="vlan", object_id=obj.id, diff=payload.model_dump())
     db.commit()
     return obj
+
+
+@router.put("/vlans/{vlan_id}")
+def update_vlan(vlan_id: int, payload: VLANCreate, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
+    obj = db.query(VLAN).filter(VLAN.id == vlan_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="VLAN not found")
+    duplicate = (
+        db.query(VLAN)
+        .filter(VLAN.id != vlan_id, VLAN.vid == payload.vid, VLAN.site_id == payload.site_id)
+        .first()
+    )
+    if duplicate:
+        raise HTTPException(status_code=409, detail="VLAN conflict in site scope")
+    old = {"vid": obj.vid, "name": obj.name, "site_id": obj.site_id, "status": obj.status, "description": obj.description}
+    for key, value in payload.model_dump().items():
+        setattr(obj, key, value)
+    stamp_change(obj, user.username)
+    db.commit()
+    db.refresh(obj)
+    record_change(db, username=user.username, action="update", object_type="vlan", object_id=obj.id, diff={"old": old, "new": payload.model_dump()})
+    db.commit()
+    return obj
+
+
+@router.delete("/vlans/{vlan_id}")
+def delete_vlan(vlan_id: int, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
+    obj = db.query(VLAN).filter(VLAN.id == vlan_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="VLAN not found")
+    obj_id = obj.id
+    db.delete(obj)
+    record_change(db, username=user.username, action="delete", object_type="vlan", object_id=obj_id, diff=None)
+    db.commit()
+    return {"deleted": obj_id}
 
 
 @router.get("/export/{object_type}")
