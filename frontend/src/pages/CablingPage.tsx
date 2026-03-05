@@ -42,27 +42,19 @@ export function CablingPage() {
     () => Object.fromEntries(endpointOptions.map((item) => [`${item.type}:${item.id}`, item])),
     [endpointOptions]
   );
-  const deviceChoices = useMemo(() => {
-    const map = new Map<string, string>();
-    devices.forEach((dev) => {
-      map.set(`device:${dev.id}`, dev.name);
-    });
+  const patchPanelChoices = useMemo(() => {
+    const map = new Map<string, { value: string; label: string; site_id?: number | null }>();
     endpointOptions.forEach((opt) => {
-      if (opt.type === "patch_port" && opt.panel_id && opt.panel_name) map.set(`panel:${opt.panel_id}`, opt.panel_name);
+      if (opt.type === "patch_port" && opt.panel_id && opt.panel_name) {
+        map.set(`panel:${opt.panel_id}`, {
+          value: `panel:${opt.panel_id}`,
+          label: opt.panel_name,
+          site_id: opt.site_id ?? null,
+        });
+      }
     });
-    return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
-  }, [devices, endpointOptions]);
-  const deviceSiteMap = useMemo(() => {
-    const map = new Map<string, string>();
-    devices.forEach((dev) => {
-      if (dev.site_id) map.set(`device:${dev.id}`, String(dev.site_id));
-    });
-    endpointOptions.forEach((opt) => {
-      const key = opt.type === "interface" ? `device:${opt.device_id}` : `panel:${opt.panel_id}`;
-      if (key && opt.site_id) map.set(key, String(opt.site_id));
-    });
-    return map;
-  }, [devices, endpointOptions]);
+    return Array.from(map.values());
+  }, [endpointOptions]);
   const siteChoices = useMemo(() => {
     return [...sites]
       .map((s) => ({ id: s.id, name: s.name }))
@@ -89,17 +81,23 @@ export function CablingPage() {
     [endpointOptions, form.site_b, form.device_b]
   );
   const deviceAChoices = useMemo(() => {
-    return deviceChoices.filter((d) => {
-      if (!form.site_a) return true;
-      return deviceSiteMap.get(d.value) === form.site_a;
-    });
-  }, [deviceChoices, deviceSiteMap, form.site_a]);
+    const base = devices
+      .filter((dev) => !form.site_a || (dev.site_id !== null && dev.site_id !== undefined && String(dev.site_id) === form.site_a))
+      .map((dev) => ({ value: `device:${dev.id}`, label: dev.name }));
+    const panels = patchPanelChoices
+      .filter((panel) => !form.site_a || (panel.site_id !== null && panel.site_id !== undefined && String(panel.site_id) === form.site_a))
+      .map((panel) => ({ value: panel.value, label: panel.label }));
+    return [...base, ...panels];
+  }, [devices, patchPanelChoices, form.site_a]);
   const deviceBChoices = useMemo(() => {
-    return deviceChoices.filter((d) => {
-      if (!form.site_b) return true;
-      return deviceSiteMap.get(d.value) === form.site_b;
-    });
-  }, [deviceChoices, deviceSiteMap, form.site_b]);
+    const base = devices
+      .filter((dev) => !form.site_b || (dev.site_id !== null && dev.site_id !== undefined && String(dev.site_id) === form.site_b))
+      .map((dev) => ({ value: `device:${dev.id}`, label: dev.name }));
+    const panels = patchPanelChoices
+      .filter((panel) => !form.site_b || (panel.site_id !== null && panel.site_id !== undefined && String(panel.site_id) === form.site_b))
+      .map((panel) => ({ value: panel.value, label: panel.label }));
+    return [...base, ...panels];
+  }, [devices, patchPanelChoices, form.site_b]);
 
   const endpointLabel = (type: string, id: number) => {
     const opt = optionByKey[`${type}:${id}`];
