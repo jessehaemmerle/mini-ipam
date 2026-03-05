@@ -4,7 +4,7 @@ import { extractApiError, get, post } from "../api/client";
 import { CablePathGraph } from "../components/cable/CablePathGraph";
 import { CableTopologyGraph } from "../components/cable/CableTopologyGraph";
 import { PageHeader } from "../components/common/PageHeader";
-import { Cable, EndpointOption } from "../types";
+import { Cable, Device, EndpointOption, Site } from "../types";
 
 type PathResult = {
   nodes: string[];
@@ -21,6 +21,8 @@ export function CablingPage() {
   const [path, setPath] = useState<PathResult | null>(null);
   const [cables, setCables] = useState<Cable[]>([]);
   const [endpointOptions, setEndpointOptions] = useState<EndpointOption[]>([]);
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -42,27 +44,30 @@ export function CablingPage() {
   );
   const deviceChoices = useMemo(() => {
     const map = new Map<string, string>();
+    devices.forEach((dev) => {
+      map.set(`device:${dev.id}`, dev.name);
+    });
     endpointOptions.forEach((opt) => {
-      if (opt.type === "interface" && opt.device_id && opt.device_name) map.set(`device:${opt.device_id}`, opt.device_name);
       if (opt.type === "patch_port" && opt.panel_id && opt.panel_name) map.set(`panel:${opt.panel_id}`, opt.panel_name);
     });
     return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
-  }, [endpointOptions]);
+  }, [devices, endpointOptions]);
   const deviceSiteMap = useMemo(() => {
     const map = new Map<string, string>();
+    devices.forEach((dev) => {
+      if (dev.site_id) map.set(`device:${dev.id}`, String(dev.site_id));
+    });
     endpointOptions.forEach((opt) => {
       const key = opt.type === "interface" ? `device:${opt.device_id}` : `panel:${opt.panel_id}`;
       if (key && opt.site_id) map.set(key, String(opt.site_id));
     });
     return map;
-  }, [endpointOptions]);
+  }, [devices, endpointOptions]);
   const siteChoices = useMemo(() => {
-    const map = new Map<number, string>();
-    endpointOptions.forEach((opt) => {
-      if (opt.site_id && opt.site_name) map.set(opt.site_id, opt.site_name);
-    });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [endpointOptions]);
+    return [...sites]
+      .map((s) => ({ id: s.id, name: s.name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [sites]);
   const endpointAOptions = useMemo(
     () =>
       endpointOptions.filter((opt) => {
@@ -118,30 +123,51 @@ export function CablingPage() {
   }, [cables, endpointOptions]);
 
   const load = async () => {
-    const [options, cableData] = await Promise.all([
-      get<EndpointResponse>("/dcim/endpoint-options"),
-      get<Cable[]>("/dcim/cables"),
-    ]);
-    const merged = [...options.interfaces, ...options.patch_ports];
-    setEndpointOptions(merged);
-    setCables(cableData);
+    try {
+      const [options, cableData, deviceData, siteData] = await Promise.all([
+        get<EndpointResponse>("/dcim/endpoint-options"),
+        get<Cable[]>("/dcim/cables"),
+        get<Device[]>("/dcim/devices"),
+        get<Site[]>("/dcim/sites"),
+      ]);
+      const merged = [...options.interfaces, ...options.patch_ports];
+      setEndpointOptions(merged);
+      setCables(cableData);
+      setDevices(deviceData);
+      setSites(siteData);
 
-    const defaultKey = merged[0] ? `${merged[0].type}:${merged[0].id}` : "";
-    setLookupKey((prev) => prev || defaultKey);
-    setForm((prev) => ({
-      ...prev,
-      site_a: prev.site_a || "",
-      device_a: prev.device_a || "",
-      endpoint_a_key: prev.endpoint_a_key || defaultKey,
-      site_b: prev.site_b || "",
-      device_b: prev.device_b || "",
-      endpoint_b_key: prev.endpoint_b_key || (merged[1] ? `${merged[1].type}:${merged[1].id}` : defaultKey),
-    }));
+      const defaultKey = merged[0] ? `${merged[0].type}:${merged[0].id}` : "";
+      setLookupKey((prev) => prev || defaultKey);
+      setForm((prev) => ({
+        ...prev,
+        site_a: prev.site_a || "",
+        device_a: prev.device_a || "",
+        endpoint_a_key: prev.endpoint_a_key || defaultKey,
+        site_b: prev.site_b || "",
+        device_b: prev.device_b || "",
+        endpoint_b_key: prev.endpoint_b_key || (merged[1] ? `${merged[1].type}:${merged[1].id}` : defaultKey),
+      }));
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+      setMessage("");
+    }
   };
 
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => {
+    if (form.endpoint_a_key && !endpointAOptions.some((opt) => `${opt.type}:${opt.id}` === form.endpoint_a_key)) {
+      setForm((prev) => ({ ...prev, endpoint_a_key: "" }));
+    }
+  }, [endpointAOptions, form.endpoint_a_key]);
+
+  useEffect(() => {
+    if (form.endpoint_b_key && !endpointBOptions.some((opt) => `${opt.type}:${opt.id}` === form.endpoint_b_key)) {
+      setForm((prev) => ({ ...prev, endpoint_b_key: "" }));
+    }
+  }, [endpointBOptions, form.endpoint_b_key]);
 
   const runLookup = async () => {
     const source = optionByKey[lookupKey];
@@ -220,6 +246,7 @@ export function CablingPage() {
               </option>
             ))}
           </select>
+          {endpointAOptions.length === 0 && <div className="muted mt-1 text-xs">Keine Endpunkte fuer die Auswahl vorhanden.</div>}
         </div>
         <div>
           <label className="muted">Site B</label>
@@ -251,6 +278,7 @@ export function CablingPage() {
               </option>
             ))}
           </select>
+          {endpointBOptions.length === 0 && <div className="muted mt-1 text-xs">Keine Endpunkte fuer die Auswahl vorhanden.</div>}
         </div>
         <input className="input" value={form.cable_type} onChange={(e) => setForm({ ...form, cable_type: e.target.value })} placeholder="cat6/fiber/dac" />
         <input className="input" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="Label" />
