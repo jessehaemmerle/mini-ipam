@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -15,6 +15,7 @@ export function RacksPage() {
   const [filters, setFilters] = useState({ q: "", minHeight: 0, healthOnly: false });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const diagramWrapperRef = useRef<HTMLDivElement | null>(null);
 
   const load = async () => {
     const rackData = await get<Rack[]>("/dcim/racks");
@@ -111,6 +112,20 @@ export function RacksPage() {
     }
   };
 
+  const exportRackSvg = () => {
+    const svg = diagramWrapperRef.current?.querySelector("svg");
+    if (!svg || !rack) return;
+    const serializer = new XMLSerializer();
+    const raw = serializer.serializeToString(svg);
+    const blob = new Blob([raw], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${rack.name}-${face}.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-4">
       <PageHeader title="Racks" subtitle="Front/Rear SVG mit U-Slot-Placement" />
@@ -166,11 +181,16 @@ export function RacksPage() {
           {filteredRacks.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
         </select>
         <button type="button" className="btn" onClick={() => setFace(face === "front" ? "rear" : "front")}>Toggle {face === "front" ? "Rear" : "Front"}</button>
+        <button type="button" className="rounded border px-3 py-2 text-sm" onClick={exportRackSvg}>Export SVG</button>
         <button type="button" className="rounded border px-3 py-2 text-sm" onClick={() => void editRack()}>Edit Rack</button>
         <button type="button" className="rounded border border-red-300 px-3 py-2 text-sm text-red-700" onClick={() => void deleteRack()}>Delete Rack</button>
       </div>
 
-      {rack && <RackDiagram heightU={rack.height_u} placements={placements} face={face} deviceNames={deviceNames} />}
+      {rack && (
+        <div ref={diagramWrapperRef}>
+          <RackDiagram heightU={rack.height_u} placements={placements} face={face} deviceNames={deviceNames} />
+        </div>
+      )}
 
       {detail && (
         <div className="card">

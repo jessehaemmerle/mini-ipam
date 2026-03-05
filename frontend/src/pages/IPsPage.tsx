@@ -17,6 +17,7 @@ export function IPsPage() {
     assigned_type: "" as "" | "device",
     assigned_id: "" as number | "",
   });
+  const [bulkForm, setBulkForm] = useState({ start_ip: "", end_ip: "", description: "" });
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [saving, setSaving] = useState(false);
@@ -145,6 +146,25 @@ export function IPsPage() {
     }
   };
 
+  const submitBulkReserve = async (e: FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setMessage("");
+    try {
+      const result = await post<{ created: number }>("/ipam/ips/bulk-reserve", {
+        start_ip: bulkForm.start_ip,
+        end_ip: bulkForm.end_ip,
+        vrf_id: form.vrf_id,
+        description: bulkForm.description || null,
+      });
+      await load();
+      setBulkForm({ start_ip: "", end_ip: "", description: "" });
+      setMessage(`${result.created} IPs reserviert.`);
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+    }
+  };
+
   return (
     <div className="space-y-4">
       <PageHeader title="IP Addresses" subtitle="Assignments, Reservierungen und DNS-Name" />
@@ -180,6 +200,12 @@ export function IPsPage() {
           </select>
         )}
         <button className="btn" type="submit" disabled={saving}>{saving ? "Speichert..." : "Quick Reserve"}</button>
+      </form>
+      <form onSubmit={submitBulkReserve} className="card flex flex-wrap items-end gap-2">
+        <input className="input" value={bulkForm.start_ip} onChange={(e) => setBulkForm({ ...bulkForm, start_ip: e.target.value })} placeholder="Start IP (z.B. 10.10.0.100)" />
+        <input className="input" value={bulkForm.end_ip} onChange={(e) => setBulkForm({ ...bulkForm, end_ip: e.target.value })} placeholder="End IP (z.B. 10.10.0.120)" />
+        <input className="input" value={bulkForm.description} onChange={(e) => setBulkForm({ ...bulkForm, description: e.target.value })} placeholder="Beschreibung (optional)" />
+        <button className="btn" type="submit">Bulk Reserve</button>
       </form>
       {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
       {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}

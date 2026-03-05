@@ -421,6 +421,18 @@ def create_cable(payload: CableCreate, db: Session = Depends(get_db), user=Depen
     return obj
 
 
+@router.delete("/cables/{cable_id}")
+def delete_cable(cable_id: int, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
+    obj = db.query(Cable).filter(Cable.id == cable_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Cable not found")
+    obj_id = obj.id
+    db.delete(obj)
+    record_change(db, username=user.username, action="delete", object_type="cable", object_id=obj_id, diff=None)
+    db.commit()
+    return {"deleted": obj_id}
+
+
 @router.post("/rack-placements")
 def place_device(payload: RackPlacementCreate, db: Session = Depends(get_db), user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor))):
     _validate_rack_placement(

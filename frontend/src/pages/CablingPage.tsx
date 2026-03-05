@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-import { extractApiError, get, post } from "../api/client";
+import { del, extractApiError, get, post } from "../api/client";
 import { CablePathGraph } from "../components/cable/CablePathGraph";
 import { CableTopologyGraph } from "../components/cable/CableTopologyGraph";
 import { PageHeader } from "../components/common/PageHeader";
@@ -224,6 +224,19 @@ export function CablingPage() {
     }
   };
 
+  const deleteCable = async (cableId: number) => {
+    if (!window.confirm(`Kabel #${cableId} wirklich loeschen?`)) return;
+    try {
+      await del(`/dcim/cables/${cableId}`);
+      await load();
+      setMessage("Kabel geloescht.");
+      setError("");
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+      setMessage("");
+    }
+  };
+
   return (
     <div className="space-y-4">
       <PageHeader title="Cabling" subtitle="Kabel zwischen Interfaces und Patchports mit Path-Ansicht" />
@@ -330,7 +343,7 @@ export function CablingPage() {
         </div>
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b text-left"><th className="p-2">ID</th><th className="p-2">A</th><th className="p-2">B</th><th className="p-2">Type</th><th className="p-2">Label</th></tr>
+            <tr className="border-b text-left"><th className="p-2">ID</th><th className="p-2">A</th><th className="p-2">B</th><th className="p-2">Type</th><th className="p-2">Label</th><th className="p-2">Aktionen</th></tr>
           </thead>
           <tbody>
             {filteredCables.map((c) => (
@@ -340,6 +353,9 @@ export function CablingPage() {
                 <td className="p-2">{endpointLabel(c.endpoint_b_type, c.endpoint_b_id)}</td>
                 <td className="p-2">{c.cable_type}</td>
                 <td className="p-2">{c.label || "-"}</td>
+                <td className="p-2">
+                  <button type="button" className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={() => void deleteCable(c.id)}>Delete</button>
+                </td>
               </tr>
             ))}
           </tbody>
