@@ -548,7 +548,53 @@ def create_power_inlet(payload: PowerInletCreate, db: Session = Depends(get_db),
     db.add(obj)
     db.commit()
     db.refresh(obj)
+    record_change(db, username=user.username, action="create", object_type="power_inlet", object_id=obj.id, diff=payload.model_dump())
+    db.commit()
     return obj
+
+
+@router.put("/power/inlets/{inlet_id}")
+def update_power_inlet(
+    inlet_id: int,
+    payload: PowerInletCreate,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor)),
+):
+    obj = db.query(PowerInlet).filter(PowerInlet.id == inlet_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Power inlet not found")
+    old = {"device_id": obj.device_id, "name": obj.name, "inlet_type": obj.inlet_type}
+    for key, value in payload.model_dump().items():
+        setattr(obj, key, value)
+    stamp_change(obj, user.username)
+    db.commit()
+    db.refresh(obj)
+    record_change(
+        db,
+        username=user.username,
+        action="update",
+        object_type="power_inlet",
+        object_id=obj.id,
+        diff={"old": old, "new": payload.model_dump()},
+    )
+    db.commit()
+    return obj
+
+
+@router.delete("/power/inlets/{inlet_id}")
+def delete_power_inlet(
+    inlet_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor)),
+):
+    obj = db.query(PowerInlet).filter(PowerInlet.id == inlet_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Power inlet not found")
+    obj_id = obj.id
+    db.delete(obj)
+    record_change(db, username=user.username, action="delete", object_type="power_inlet", object_id=obj_id, diff=None)
+    db.commit()
+    return {"deleted": obj_id}
 
 
 @router.get("/power/inlets")
@@ -563,7 +609,53 @@ def create_pdu_outlet(payload: PDUOutletCreate, db: Session = Depends(get_db), u
     db.add(obj)
     db.commit()
     db.refresh(obj)
+    record_change(db, username=user.username, action="create", object_type="pdu_outlet", object_id=obj.id, diff=payload.model_dump())
+    db.commit()
     return obj
+
+
+@router.put("/power/outlets/{outlet_id}")
+def update_pdu_outlet(
+    outlet_id: int,
+    payload: PDUOutletCreate,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor)),
+):
+    obj = db.query(PDUOutlet).filter(PDUOutlet.id == outlet_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="PDU outlet not found")
+    old = {"pdu_device_id": obj.pdu_device_id, "name": obj.name}
+    for key, value in payload.model_dump().items():
+        setattr(obj, key, value)
+    stamp_change(obj, user.username)
+    db.commit()
+    db.refresh(obj)
+    record_change(
+        db,
+        username=user.username,
+        action="update",
+        object_type="pdu_outlet",
+        object_id=obj.id,
+        diff={"old": old, "new": payload.model_dump()},
+    )
+    db.commit()
+    return obj
+
+
+@router.delete("/power/outlets/{outlet_id}")
+def delete_pdu_outlet(
+    outlet_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor)),
+):
+    obj = db.query(PDUOutlet).filter(PDUOutlet.id == outlet_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="PDU outlet not found")
+    obj_id = obj.id
+    db.delete(obj)
+    record_change(db, username=user.username, action="delete", object_type="pdu_outlet", object_id=obj_id, diff=None)
+    db.commit()
+    return {"deleted": obj_id}
 
 
 @router.get("/power/outlets")
@@ -578,7 +670,58 @@ def create_power_connection(payload: PowerConnectionCreate, db: Session = Depend
     db.add(obj)
     db.commit()
     db.refresh(obj)
+    record_change(db, username=user.username, action="create", object_type="power_connection", object_id=obj.id, diff=payload.model_dump())
+    db.commit()
     return obj
+
+
+@router.put("/power/connections/{connection_id}")
+def update_power_connection(
+    connection_id: int,
+    payload: PowerConnectionCreate,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor)),
+):
+    obj = db.query(PowerConnection).filter(PowerConnection.id == connection_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Power connection not found")
+    old = {
+        "src_type": obj.src_type,
+        "src_id": obj.src_id,
+        "dst_type": obj.dst_type,
+        "dst_id": obj.dst_id,
+    }
+    for key, value in payload.model_dump().items():
+        setattr(obj, key, value)
+    stamp_change(obj, user.username)
+    db.commit()
+    db.refresh(obj)
+    record_change(
+        db,
+        username=user.username,
+        action="update",
+        object_type="power_connection",
+        object_id=obj.id,
+        diff={"old": old, "new": payload.model_dump()},
+    )
+    db.commit()
+    return obj
+
+
+@router.delete("/power/connections/{connection_id}")
+def delete_power_connection(
+    connection_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_roles(RoleEnum.admin, RoleEnum.editor)),
+):
+    obj = db.query(PowerConnection).filter(PowerConnection.id == connection_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Power connection not found")
+    obj_id = obj.id
+    db.delete(obj)
+    record_change(db, username=user.username, action="delete", object_type="power_connection", object_id=obj_id, diff=None)
+    db.commit()
+    return {"deleted": obj_id}
 
 
 @router.get("/power/connections")

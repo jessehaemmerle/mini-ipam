@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-import { extractApiError, get, post } from "../api/client";
+import { del, extractApiError, get, post, put } from "../api/client";
 import { PowerGraph } from "../components/power/PowerGraph";
 import { Device, PDUOutlet, PowerConnection, PowerInlet, Rack } from "../types";
 import { PageHeader } from "../components/common/PageHeader";
@@ -15,6 +15,9 @@ export function PowerPage() {
   const [map, setMap] = useState<Array<Record<string, unknown>>>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [editingInletId, setEditingInletId] = useState<number | null>(null);
+  const [editingOutletId, setEditingOutletId] = useState<number | null>(null);
+  const [editingConnectionId, setEditingConnectionId] = useState<number | null>(null);
 
   const [inletForm, setInletForm] = useState({ device_id: 0, name: "PSU-A" });
   const [outletForm, setOutletForm] = useState({ pdu_device_id: 0, name: "Outlet-1" });
@@ -109,9 +112,14 @@ export function PowerPage() {
   const submitInlet = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await post("/dcim/power/inlets", inletForm);
+      if (editingInletId) {
+        await put(`/dcim/power/inlets/${editingInletId}`, inletForm);
+      } else {
+        await post("/dcim/power/inlets", inletForm);
+      }
       await load();
-      setMessage("Power Inlet erstellt.");
+      setEditingInletId(null);
+      setMessage(editingInletId ? "Power Inlet aktualisiert." : "Power Inlet erstellt.");
       setError("");
     } catch (err: unknown) {
       setError(extractApiError(err));
@@ -122,9 +130,68 @@ export function PowerPage() {
   const submitOutlet = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await post("/dcim/power/outlets", outletForm);
+      if (editingOutletId) {
+        await put(`/dcim/power/outlets/${editingOutletId}`, outletForm);
+      } else {
+        await post("/dcim/power/outlets", outletForm);
+      }
       await load();
-      setMessage("PDU Outlet erstellt.");
+      setEditingOutletId(null);
+      setMessage(editingOutletId ? "PDU Outlet aktualisiert." : "PDU Outlet erstellt.");
+      setError("");
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+      setMessage("");
+    }
+  };
+
+  const startEditInlet = (inlet: PowerInlet) => {
+    setEditingInletId(inlet.id);
+    setInletForm({ device_id: inlet.device_id, name: inlet.name });
+    setMessage("");
+    setError("");
+  };
+
+  const cancelEditInlet = () => {
+    setEditingInletId(null);
+    setInletForm({ device_id: devices[0]?.id || 0, name: "PSU-A" });
+  };
+
+  const deleteInlet = async (inletId: number) => {
+    if (!window.confirm(`Power Inlet #${inletId} wirklich loeschen?`)) return;
+    try {
+      await del(`/dcim/power/inlets/${inletId}`);
+      if (editingInletId === inletId) cancelEditInlet();
+      await load();
+      await loadMap();
+      setMessage("Power Inlet geloescht.");
+      setError("");
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+      setMessage("");
+    }
+  };
+
+  const startEditOutlet = (outlet: PDUOutlet) => {
+    setEditingOutletId(outlet.id);
+    setOutletForm({ pdu_device_id: outlet.pdu_device_id, name: outlet.name });
+    setMessage("");
+    setError("");
+  };
+
+  const cancelEditOutlet = () => {
+    setEditingOutletId(null);
+    setOutletForm({ pdu_device_id: devices.find((d) => d.role === "pdu")?.id || devices[0]?.id || 0, name: "Outlet-1" });
+  };
+
+  const deleteOutlet = async (outletId: number) => {
+    if (!window.confirm(`PDU Outlet #${outletId} wirklich loeschen?`)) return;
+    try {
+      await del(`/dcim/power/outlets/${outletId}`);
+      if (editingOutletId === outletId) cancelEditOutlet();
+      await load();
+      await loadMap();
+      setMessage("PDU Outlet geloescht.");
       setError("");
     } catch (err: unknown) {
       setError(extractApiError(err));
@@ -135,15 +202,51 @@ export function PowerPage() {
   const submitConnection = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await post("/dcim/power/connections", {
+      const payload = {
         src_type: "power_inlet",
         src_id: connectionForm.src_id,
         dst_type: "pdu_outlet",
         dst_id: connectionForm.dst_id,
-      });
+      };
+      if (editingConnectionId) {
+        await put(`/dcim/power/connections/${editingConnectionId}`, payload);
+      } else {
+        await post("/dcim/power/connections", payload);
+      }
       await load();
       await loadMap();
-      setMessage("Power Connection erstellt.");
+      setEditingConnectionId(null);
+      setMessage(editingConnectionId ? "Power Connection aktualisiert." : "Power Connection erstellt.");
+      setError("");
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+      setMessage("");
+    }
+  };
+
+  const startEditConnection = (connection: PowerConnection) => {
+    setEditingConnectionId(connection.id);
+    setConnectionForm({ src_id: connection.src_id, dst_id: connection.dst_id });
+    setMessage("");
+    setError("");
+  };
+
+  const cancelEditConnection = () => {
+    setEditingConnectionId(null);
+    setConnectionForm({ src_id: inlets[0]?.id || 0, dst_id: outlets[0]?.id || 0 });
+  };
+
+  const deleteConnection = async (connectionId: number) => {
+    if (!window.confirm(`Power Connection #${connectionId} wirklich loeschen?`)) return;
+    try {
+      await del(`/dcim/power/connections/${connectionId}`);
+      if (editingConnectionId === connectionId) {
+        setEditingConnectionId(null);
+        setConnectionForm({ src_id: inlets[0]?.id || 0, dst_id: outlets[0]?.id || 0 });
+      }
+      await load();
+      await loadMap();
+      setMessage("Power Connection geloescht.");
       setError("");
     } catch (err: unknown) {
       setError(extractApiError(err));
@@ -165,7 +268,8 @@ export function PowerPage() {
           </select>
         </div>
         <input className="input" value={inletForm.name} onChange={(e) => setInletForm({ ...inletForm, name: e.target.value })} placeholder="PSU-A" />
-        <button className="btn" type="submit">Create Inlet</button>
+        <button className="btn" type="submit">{editingInletId ? "Update Inlet" : "Create Inlet"}</button>
+        {editingInletId && <button type="button" className="rounded border px-3 py-2 text-sm" onClick={cancelEditInlet}>Cancel</button>}
       </form>
 
       <form className="card flex flex-wrap items-end gap-2" onSubmit={submitOutlet}>
@@ -176,7 +280,8 @@ export function PowerPage() {
           </select>
         </div>
         <input className="input" value={outletForm.name} onChange={(e) => setOutletForm({ ...outletForm, name: e.target.value })} placeholder="Outlet-1" />
-        <button className="btn" type="submit">Create Outlet</button>
+        <button className="btn" type="submit">{editingOutletId ? "Update Outlet" : "Create Outlet"}</button>
+        {editingOutletId && <button type="button" className="rounded border px-3 py-2 text-sm" onClick={cancelEditOutlet}>Cancel</button>}
       </form>
 
       <form className="card flex flex-wrap items-end gap-2" onSubmit={submitConnection}>
@@ -192,12 +297,56 @@ export function PowerPage() {
             {outlets.map((o) => <option key={o.id} value={o.id}>{o.name} ({deviceById[o.pdu_device_id] || `pdu-${o.pdu_device_id}`})</option>)}
           </select>
         </div>
-        <button className="btn" type="submit">Connect</button>
+        <button className="btn" type="submit">{editingConnectionId ? "Update Connection" : "Connect"}</button>
+        {editingConnectionId && (
+          <button type="button" className="rounded border px-3 py-2 text-sm" onClick={cancelEditConnection}>Cancel</button>
+        )}
       </form>
 
       <div className="card overflow-x-auto">
+        <p className="mb-2 text-sm font-semibold">Power Inlets</p>
         <table className="w-full text-sm">
-          <thead><tr className="border-b text-left"><th className="p-2">ID</th><th className="p-2">Source</th><th className="p-2">Target</th></tr></thead>
+          <thead><tr className="border-b text-left"><th className="p-2">ID</th><th className="p-2">Name</th><th className="p-2">Device</th><th className="p-2">Actions</th></tr></thead>
+          <tbody>
+            {inlets.map((i) => (
+              <tr key={i.id} className="border-b">
+                <td className="p-2">{i.id}</td>
+                <td className="p-2">{i.name}</td>
+                <td className="p-2">{deviceById[i.device_id] || `device-${i.device_id}`}</td>
+                <td className="p-2">
+                  <button type="button" className="mr-2 rounded border px-2 py-1 text-xs" onClick={() => startEditInlet(i)}>Edit</button>
+                  <button type="button" className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={() => void deleteInlet(i.id)}>Delete</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="card overflow-x-auto">
+        <p className="mb-2 text-sm font-semibold">PDU Outlets</p>
+        <table className="w-full text-sm">
+          <thead><tr className="border-b text-left"><th className="p-2">ID</th><th className="p-2">Name</th><th className="p-2">PDU/UPS</th><th className="p-2">Actions</th></tr></thead>
+          <tbody>
+            {outlets.map((o) => (
+              <tr key={o.id} className="border-b">
+                <td className="p-2">{o.id}</td>
+                <td className="p-2">{o.name}</td>
+                <td className="p-2">{deviceById[o.pdu_device_id] || `pdu-${o.pdu_device_id}`}</td>
+                <td className="p-2">
+                  <button type="button" className="mr-2 rounded border px-2 py-1 text-xs" onClick={() => startEditOutlet(o)}>Edit</button>
+                  <button type="button" className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={() => void deleteOutlet(o.id)}>Delete</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="card overflow-x-auto">
+        <p className="mb-2 text-sm font-semibold">Power Connections</p>
+        <table className="w-full text-sm">
+          <thead><tr className="border-b text-left"><th className="p-2">ID</th><th className="p-2">Source</th><th className="p-2">Target</th><th className="p-2">Actions</th></tr></thead>
           <tbody>
             {connections.map((c) => (
               <tr key={c.id} className="border-b">
@@ -211,6 +360,10 @@ export function PowerPage() {
                   {c.dst_type === "pdu_outlet" && outletById[c.dst_id]
                     ? `${outletById[c.dst_id].name} (${deviceById[outletById[c.dst_id].pdu_device_id] || `pdu-${outletById[c.dst_id].pdu_device_id}`})`
                     : `${c.dst_type}:${c.dst_id}`}
+                </td>
+                <td className="p-2">
+                  <button type="button" className="mr-2 rounded border px-2 py-1 text-xs" onClick={() => startEditConnection(c)}>Edit</button>
+                  <button type="button" className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={() => void deleteConnection(c.id)}>Delete</button>
                 </td>
               </tr>
             ))}
