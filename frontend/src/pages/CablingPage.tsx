@@ -48,7 +48,7 @@ export function CablingPage() {
       const to = `${c.endpoint_b_type}:${c.endpoint_b_id}`;
       nodeMap.set(from, { id: from, label: endpointLabel(c.endpoint_a_type, c.endpoint_a_id) });
       nodeMap.set(to, { id: to, label: endpointLabel(c.endpoint_b_type, c.endpoint_b_id) });
-      return { from, to, label: c.label || c.cable_type };
+      return { id: `cable-${c.id}`, from, to, label: c.label || `${c.cable_type} #${c.id}` };
     });
     return { nodes: Array.from(nodeMap.values()), edges };
   }, [cables, endpointOptions]);

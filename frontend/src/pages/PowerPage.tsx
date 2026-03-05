@@ -50,7 +50,7 @@ export function PowerPage() {
       }
       nodeMap.set(from, { id: from, label: fromLabel });
       nodeMap.set(to, { id: to, label: toLabel });
-      return { from, to };
+      return { id: `power-${c.id}`, from, to };
     });
     return { nodes: Array.from(nodeMap.values()), edges };
   }, [connections, inletById, outletById, deviceById]);
