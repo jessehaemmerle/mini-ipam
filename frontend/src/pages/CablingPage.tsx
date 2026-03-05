@@ -1,4 +1,4 @@
-﻿import { FormEvent, useState } from "react";
+import { FormEvent, useState } from "react";
 
 import { get, post } from "../api/client";
 import { CablePathGraph } from "../components/cable/CablePathGraph";

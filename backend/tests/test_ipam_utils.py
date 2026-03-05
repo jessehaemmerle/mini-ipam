@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 
 from app.utils.ipam import ip_in_prefix, next_free_ip, parse_cidr, parse_ip
 

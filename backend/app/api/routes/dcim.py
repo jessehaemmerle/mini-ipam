@@ -1,4 +1,4 @@
-﻿from collections import deque
+from collections import deque
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import and_, or_

@@ -1,4 +1,4 @@
-﻿import { RackPlacement } from "../../types";
+import { RackPlacement } from "../../types";
 
 type Props = {
   heightU: number;

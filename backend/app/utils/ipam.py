@@ -1,4 +1,4 @@
-﻿import ipaddress
+import ipaddress
 
 
 def parse_cidr(cidr: str) -> ipaddress._BaseNetwork:

@@ -1,4 +1,4 @@
-﻿from app.utils.ipam import parse_vlan_range
+from app.utils.ipam import parse_vlan_range
 
 
 def test_parse_vlan_range():

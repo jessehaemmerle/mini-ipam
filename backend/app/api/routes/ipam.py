@@ -1,4 +1,4 @@
-﻿import csv
+import csv
 import io
 import ipaddress
 from ipaddress import summarize_address_range

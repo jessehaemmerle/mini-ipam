@@ -1,4 +1,4 @@
-﻿# mini-ipam
+# mini-ipam
 
 IPAM-first Tool mit grundlegenden DCIM-Funktionen (Sites, Racks, Cabling inkl. Patchpanel-Pfade, Power Mapping), Single-Tenant, offline-fähig, lokal per Docker Compose startbar.
 
