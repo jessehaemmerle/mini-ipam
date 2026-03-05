@@ -35,6 +35,7 @@ export function GlobalSearchPanel() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<SearchResult>(EMPTY_RESULT);
+  const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -47,13 +48,23 @@ export function GlobalSearchPanel() {
     result.racks.length > 0 ||
     result.cables.length > 0 ||
     (result.patch_ports?.length || 0) > 0;
+  const totalHits =
+    result.prefixes.length +
+    result.ips.length +
+    result.vlans.length +
+    result.devices.length +
+    result.racks.length +
+    result.cables.length +
+    (result.patch_ports?.length || 0);
 
   const runSearch = async () => {
     if (!query.trim()) {
       setResult(EMPTY_RESULT);
+      setSearched(false);
       return;
     }
     setLoading(true);
+    setSearched(true);
     setError("");
     setMessage("");
     try {
@@ -118,15 +129,28 @@ export function GlobalSearchPanel() {
           className="input flex-1"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              void runSearch();
+            }
+          }}
           placeholder="Global search: IP, Prefix, VLAN, Device, Rack, Cable"
         />
         <button className="btn" type="button" onClick={() => void runSearch()} disabled={loading}>
           {loading ? "Searching..." : "Search"}
         </button>
       </div>
+      <p className="muted">Tipp: Mit Enter starten. Aktionen wie Copy/Open sind direkt je Treffer verfuegbar.</p>
 
       {message && <div className="rounded border border-green-200 bg-green-50 p-2 text-sm text-green-800">{message}</div>}
       {error && <div className="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-800">{error}</div>}
+      {searched && !loading && <p className="text-xs font-medium text-slate-500">{totalHits} Treffer fuer "{query.trim()}".</p>}
+      {searched && !loading && !hasResult && (
+        <div className="rounded border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+          Keine Treffer gefunden. Versuche eine kuerzere oder allgemeinere Suche.
+        </div>
+      )}
 
       {hasResult && (
         <div className="space-y-3 text-sm">

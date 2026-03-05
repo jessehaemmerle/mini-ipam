@@ -10,6 +10,7 @@
 
 body {
   margin: 0;
+  line-height: 1.45;
   color: #121a25;
   background: radial-gradient(circle at 20% 20%, #fef4dd 0%, #f6f7f2 35%, #eef1ed 100%);
 }
@@ -24,11 +25,19 @@ html.dark body {
 }
 
 .input {
-  @apply rounded-md border border-slate-300 bg-white px-3 py-2 text-sm;
+  @apply rounded-md border border-slate-300 bg-white px-3 py-2 text-sm transition-colors outline-none;
+}
+
+.input:focus {
+  @apply border-brand ring-2 ring-brand/20;
 }
 
 .btn {
-  @apply rounded-md bg-brand px-3 py-2 text-sm font-semibold text-white hover:brightness-95;
+  @apply rounded-md bg-brand px-3 py-2 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.btn-secondary {
+  @apply rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50;
 }
 
 .muted {
@@ -53,6 +62,16 @@ html.dark .input::placeholder {
 
 html.dark .btn {
   background: #256c52;
+}
+
+html.dark .btn-secondary {
+  background: #0b1220;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+html.dark .btn-secondary:hover {
+  background: #1e293b;
 }
 
 html.dark .muted {

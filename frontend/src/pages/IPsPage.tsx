@@ -167,7 +167,11 @@ export function IPsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="IP Addresses" subtitle="Assignments, Reservierungen und DNS-Name" />
+      <PageHeader
+        title="IP Addresses"
+        subtitle="Assignments, Reservierungen und DNS-Name"
+        meta={`${filteredItems.length} von ${items.length} IPs`}
+      />
       <form onSubmit={submit} className="card flex flex-wrap items-end gap-2">
         <input className="input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="10.10.0.12" />
         <input className="input" value={form.dns_name} onChange={(e) => setForm({ ...form, dns_name: e.target.value })} placeholder="dns name" />
@@ -231,6 +235,13 @@ export function IPsPage() {
           <option value="assigned">mit Geraet</option>
           <option value="unassigned">ohne Geraet</option>
         </select>
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => setFilters({ q: "", status: "", assigned: "" })}
+        >
+          Filter zuruecksetzen
+        </button>
       </div>
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
@@ -279,6 +290,13 @@ export function IPsPage() {
                 </td>
               </tr>
             ))}
+            {filteredItems.length === 0 && (
+              <tr>
+                <td className="p-3 text-sm text-slate-500" colSpan={5}>
+                  Keine IPs gefunden. Passe Filter oder Suche an.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

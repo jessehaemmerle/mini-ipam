@@ -99,7 +99,11 @@ export function PrefixesPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Prefixes" subtitle="Overview, schnelle Anlage, Auslastung je Prefix" />
+      <PageHeader
+        title="Prefixes"
+        subtitle="Overview, schnelle Anlage, Auslastung je Prefix"
+        meta={`${filteredItems.length} von ${items.length} Prefixen`}
+      />
       <form className="card flex flex-wrap items-end gap-2" onSubmit={onSubmit}>
         <div>
           <label className="muted">CIDR</label>
@@ -142,6 +146,13 @@ export function PrefixesPage() {
             <option key={status} value={status}>{status}</option>
           ))}
         </select>
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => setFilters({ q: "", vrf_id: "", role: "", status: "" })}
+        >
+          Filter zuruecksetzen
+        </button>
       </div>
 
       <div className="card overflow-x-auto">
@@ -172,6 +183,13 @@ export function PrefixesPage() {
                 </td>
               </tr>
             ))}
+            {filteredItems.length === 0 && (
+              <tr>
+                <td className="p-3 text-sm text-slate-500" colSpan={5}>
+                  Keine Prefixe gefunden. Passe Filter oder Suche an.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Route, Routes } from "react-router-dom";
 
 import { Sidebar } from "./components/layout/Sidebar";
@@ -17,11 +18,17 @@ import { VLANsPage } from "./pages/VLANsPage";
 import { VRFsPage } from "./pages/VRFsPage";
 
 function App() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <SettingsProvider>
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto p-6">
+      <div className="flex min-h-screen bg-surface/30">
+        <Sidebar
+          mobileOpen={mobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
+          onToggle={() => setMobileMenuOpen((prev) => !prev)}
+        />
+        <main className="flex-1 overflow-y-auto p-4 pt-16 md:p-6 md:pt-6">
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/ipam/prefixes" element={<PrefixesPage />} />
