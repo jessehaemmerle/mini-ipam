@@ -1,12 +1,14 @@
 type Node = {
   id: string;
   label: string;
+  kind?: "device" | "endpoint";
 };
 
 type Edge = {
   id: string;
   from: string;
   to: string;
+  kind?: "association" | "connection";
 };
 
 type Props = {
@@ -55,13 +57,23 @@ export function PowerGraph({ nodes, edges }: Props) {
         const cy = my + ny * offset;
         return (
           <g key={`${edge.from}-${edge.to}-${idx}`}>
-            <path d={`M ${from.x} ${from.y} Q ${cx} ${cy} ${to.x} ${to.y}`} fill="none" stroke="#1d6b4f" strokeWidth="3" />
+            <path
+              d={`M ${from.x} ${from.y} Q ${cx} ${cy} ${to.x} ${to.y}`}
+              fill="none"
+              stroke={edge.kind === "association" ? "#64748b" : "#1d6b4f"}
+              strokeWidth={edge.kind === "association" ? "1.8" : "3"}
+              strokeDasharray={edge.kind === "association" ? "5 4" : "0"}
+            />
           </g>
         );
       })}
       {layout.map((node) => (
         <g key={node.id}>
-          <ellipse cx={node.x} cy={node.y} rx="64" ry="20" fill="#0f172a" />
+          {node.kind === "device" ? (
+            <rect x={node.x - 66} y={node.y - 18} width="132" height="36" rx="7" fill="#0f172a" />
+          ) : (
+            <ellipse cx={node.x} cy={node.y} rx="64" ry="20" fill="#1e293b" />
+          )}
           <text x={node.x} y={node.y + 4} fontSize="10" textAnchor="middle" fill="#fff">
             {node.label.length > 28 ? `${node.label.slice(0, 28)}...` : node.label}
           </text>

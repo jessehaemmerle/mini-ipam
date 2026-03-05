@@ -33,8 +33,26 @@ export function PowerPage() {
     [outlets]
   );
   const powerGraphData = useMemo(() => {
-    const nodeMap = new Map<string, { id: string; label: string }>();
-    const edges = connections.map((c) => {
+    const nodeMap = new Map<string, { id: string; label: string; kind?: "device" | "endpoint" }>();
+    const edges: Array<{ id: string; from: string; to: string; kind?: "association" | "connection" }> = [];
+
+    for (const inlet of inlets) {
+      const deviceNode = `device:${inlet.device_id}`;
+      const inletNode = `power_inlet:${inlet.id}`;
+      nodeMap.set(deviceNode, { id: deviceNode, label: deviceById[inlet.device_id] || `device-${inlet.device_id}`, kind: "device" as const });
+      nodeMap.set(inletNode, { id: inletNode, label: `IN ${inlet.name} #${inlet.id}`, kind: "endpoint" as const });
+      edges.push({ id: `assoc-in-${inlet.id}`, from: deviceNode, to: inletNode, kind: "association" });
+    }
+
+    for (const outlet of outlets) {
+      const deviceNode = `device:${outlet.pdu_device_id}`;
+      const outletNode = `pdu_outlet:${outlet.id}`;
+      nodeMap.set(deviceNode, { id: deviceNode, label: deviceById[outlet.pdu_device_id] || `pdu-${outlet.pdu_device_id}`, kind: "device" as const });
+      nodeMap.set(outletNode, { id: outletNode, label: `OUT ${outlet.name} #${outlet.id}`, kind: "endpoint" as const });
+      edges.push({ id: `assoc-out-${outlet.id}`, from: deviceNode, to: outletNode, kind: "association" });
+    }
+
+    for (const c of connections) {
       let from = `${c.src_type}:${c.src_id}`;
       let to = `${c.dst_type}:${c.dst_id}`;
       let fromLabel = from;
@@ -48,10 +66,10 @@ export function PowerPage() {
         const outlet = outletById[c.dst_id];
         toLabel = `${deviceById[outlet.pdu_device_id] || `pdu-${outlet.pdu_device_id}`} / ${outlet.name}`;
       }
-      nodeMap.set(from, { id: from, label: fromLabel });
-      nodeMap.set(to, { id: to, label: toLabel });
-      return { id: `power-${c.id}`, from, to };
-    });
+      nodeMap.set(from, { id: from, label: fromLabel, kind: "endpoint" as const });
+      nodeMap.set(to, { id: to, label: toLabel, kind: "endpoint" as const });
+      edges.push({ id: `power-${c.id}`, from, to, kind: "connection" });
+    }
     return { nodes: Array.from(nodeMap.values()), edges };
   }, [connections, inletById, outletById, deviceById]);
 
