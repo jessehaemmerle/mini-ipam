@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -7,6 +7,7 @@ import { Vrf } from "../types";
 export function VRFsPage() {
   const [items, setItems] = useState<Vrf[]>([]);
   const [name, setName] = useState("");
+  const [filter, setFilter] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -19,6 +20,12 @@ export function VRFsPage() {
   useEffect(() => {
     void load();
   }, []);
+
+  const filteredItems = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((item) => item.name.toLowerCase().includes(q) || (item.description || "").toLowerCase().includes(q));
+  }, [items, filter]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -78,6 +85,9 @@ export function VRFsPage() {
       </form>
       {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
       {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
+      <div className="card">
+        <input className="input" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Suche Name/Beschreibung" />
+      </div>
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -88,7 +98,7 @@ export function VRFsPage() {
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
+            {filteredItems.map((item) => (
               <tr key={item.id} className="border-b">
                 <td className="p-2">{item.name}</td>
                 <td className="p-2">{item.description || "-"}</td>

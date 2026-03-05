@@ -25,6 +25,7 @@ export function CablingPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [listFilter, setListFilter] = useState({ q: "", cable_type: "" });
 
   const [lookupKey, setLookupKey] = useState("");
   const [form, setForm] = useState({
@@ -108,9 +109,22 @@ export function CablingPage() {
     return `${opt.site_name ? `[${opt.site_name}] ` : ""}${opt.panel_name || `panel-${opt.panel_id}`} / ${opt.name}`;
   };
 
-  const topologyData = useMemo(() => {
+  const filteredCables = useMemo(() => {
+    const q = listFilter.q.trim().toLowerCase();
+    return cables.filter((c) => {
+      if (listFilter.cable_type && c.cable_type !== listFilter.cable_type) return false;
+      if (!q) return true;
+      return (
+        String(c.id).includes(q) ||
+        (c.label || "").toLowerCase().includes(q) ||
+        endpointLabel(c.endpoint_a_type, c.endpoint_a_id).toLowerCase().includes(q) ||
+        endpointLabel(c.endpoint_b_type, c.endpoint_b_id).toLowerCase().includes(q)
+      );
+    });
+  }, [cables, listFilter, optionByKey]);
+  const filteredTopologyData = useMemo(() => {
     const nodeMap = new Map<string, { id: string; label: string }>();
-    const edges = cables.map((c) => {
+    const edges = filteredCables.map((c) => {
       const from = `${c.endpoint_a_type}:${c.endpoint_a_id}`;
       const to = `${c.endpoint_b_type}:${c.endpoint_b_id}`;
       nodeMap.set(from, { id: from, label: endpointLabel(c.endpoint_a_type, c.endpoint_a_id) });
@@ -118,7 +132,7 @@ export function CablingPage() {
       return { id: `cable-${c.id}`, from, to, label: c.label || `${c.cable_type} #${c.id}` };
     });
     return { nodes: Array.from(nodeMap.values()), edges };
-  }, [cables, endpointOptions]);
+  }, [filteredCables, optionByKey]);
 
   const load = async () => {
     try {
@@ -300,12 +314,26 @@ export function CablingPage() {
       </div>
 
       <div className="card overflow-x-auto">
+        <div className="mb-2 flex flex-wrap gap-2">
+          <input
+            className="input"
+            value={listFilter.q}
+            onChange={(e) => setListFilter((prev) => ({ ...prev, q: e.target.value }))}
+            placeholder="Filter ID/Label/Endpoint"
+          />
+          <select className="input" value={listFilter.cable_type} onChange={(e) => setListFilter((prev) => ({ ...prev, cable_type: e.target.value }))}>
+            <option value="">alle Kabeltypen</option>
+            {Array.from(new Set(cables.map((c) => c.cable_type))).sort().map((type) => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+        </div>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left"><th className="p-2">ID</th><th className="p-2">A</th><th className="p-2">B</th><th className="p-2">Type</th><th className="p-2">Label</th></tr>
           </thead>
           <tbody>
-            {cables.map((c) => (
+            {filteredCables.map((c) => (
               <tr key={c.id} className="border-b">
                 <td className="p-2">{c.id}</td>
                 <td className="p-2">{endpointLabel(c.endpoint_a_type, c.endpoint_a_id)}</td>
@@ -318,10 +346,10 @@ export function CablingPage() {
         </table>
       </div>
 
-      {topologyData.nodes.length > 0 && (
+      {filteredTopologyData.nodes.length > 0 && (
         <div className="card">
           <h3 className="mb-2 text-lg font-semibold">Cable Topology</h3>
-          <CableTopologyGraph nodes={topologyData.nodes} edges={topologyData.edges} />
+          <CableTopologyGraph nodes={filteredTopologyData.nodes} edges={filteredTopologyData.edges} />
         </div>
       )}
 

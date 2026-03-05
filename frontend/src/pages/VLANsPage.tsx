@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -7,6 +7,7 @@ import { VLAN } from "../types";
 export function VLANsPage() {
   const [items, setItems] = useState<VLAN[]>([]);
   const [form, setForm] = useState({ vid: 10, name: "" });
+  const [filters, setFilters] = useState({ q: "", status: "" });
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [saving, setSaving] = useState(false);
@@ -15,6 +16,15 @@ export function VLANsPage() {
   useEffect(() => {
     void load();
   }, []);
+
+  const filteredItems = useMemo(() => {
+    const q = filters.q.trim().toLowerCase();
+    return items.filter((item) => {
+      if (filters.status && item.status !== filters.status) return false;
+      if (!q) return true;
+      return item.name.toLowerCase().includes(q) || String(item.vid).includes(q);
+    });
+  }, [items, filters]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -74,18 +84,32 @@ export function VLANsPage() {
       </form>
       {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
       {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
+      <div className="card flex flex-wrap gap-2">
+        <input
+          className="input"
+          value={filters.q}
+          onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))}
+          placeholder="Suche VID/Name"
+        />
+        <select className="input" value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}>
+          <option value="">alle Status</option>
+          {Array.from(new Set(items.map((item) => item.status))).sort().map((status) => (
+            <option key={status} value={status}>{status}</option>
+          ))}
+        </select>
+      </div>
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead><tr className="border-b text-left"><th className="p-2">VID</th><th className="p-2">Name</th><th className="p-2">Status</th><th className="p-2">Aktionen</th></tr></thead>
           <tbody>
-            {items.map((item) => (
+            {filteredItems.map((item) => (
               <tr key={item.id} className="border-b">
                 <td className="p-2">{item.vid}</td>
                 <td className="p-2">{item.name}</td>
                 <td className="p-2">{item.status}</td>
                 <td className="p-2">
-                  <button className="mr-2 rounded border px-2 py-1 text-xs" onClick={() => void editVlan(item)}>Edit</button>
-                  <button className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={() => void deleteVlan(item)}>Delete</button>
+                  <button type="button" className="mr-2 rounded border px-2 py-1 text-xs" onClick={() => void editVlan(item)}>Edit</button>
+                  <button type="button" className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={() => void deleteVlan(item)}>Delete</button>
                 </td>
               </tr>
             ))}

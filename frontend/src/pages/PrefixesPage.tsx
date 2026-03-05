@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -11,6 +11,7 @@ export function PrefixesPage() {
   const [detail, setDetail] = useState<PrefixDetail | null>(null);
   const [tab, setTab] = useState<"overview" | "ips" | "history">("overview");
   const [form, setForm] = useState({ cidr: "", vrf_id: 1, role: "LAN" });
+  const [filters, setFilters] = useState({ q: "", vrf_id: "" as number | "", role: "", status: "" });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -27,6 +28,17 @@ export function PrefixesPage() {
   useEffect(() => {
     void load();
   }, []);
+
+  const filteredItems = useMemo(() => {
+    const q = filters.q.trim().toLowerCase();
+    return items.filter((item) => {
+      if (filters.vrf_id !== "" && item.vrf_id !== filters.vrf_id) return false;
+      if (filters.role && item.role !== filters.role) return false;
+      if (filters.status && item.status !== filters.status) return false;
+      if (!q) return true;
+      return item.cidr.toLowerCase().includes(q) || item.role.toLowerCase().includes(q);
+    });
+  }, [items, filters]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -105,6 +117,32 @@ export function PrefixesPage() {
       </form>
       {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
       {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
+      <div className="card flex flex-wrap gap-2">
+        <input
+          className="input"
+          value={filters.q}
+          onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))}
+          placeholder="Suche CIDR/Role"
+        />
+        <select className="input" value={filters.vrf_id} onChange={(e) => setFilters((prev) => ({ ...prev, vrf_id: e.target.value ? Number(e.target.value) : "" }))}>
+          <option value="">alle VRFs</option>
+          {vrfs.map((vrf) => (
+            <option key={`filter-vrf-${vrf.id}`} value={vrf.id}>{vrf.name}</option>
+          ))}
+        </select>
+        <select className="input" value={filters.role} onChange={(e) => setFilters((prev) => ({ ...prev, role: e.target.value }))}>
+          <option value="">alle Roles</option>
+          {Array.from(new Set(items.map((item) => item.role))).sort().map((role) => (
+            <option key={role} value={role}>{role}</option>
+          ))}
+        </select>
+        <select className="input" value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}>
+          <option value="">alle Status</option>
+          {Array.from(new Set(items.map((item) => item.status))).sort().map((status) => (
+            <option key={status} value={status}>{status}</option>
+          ))}
+        </select>
+      </div>
 
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
@@ -118,7 +156,7 @@ export function PrefixesPage() {
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
+            {filteredItems.map((item) => (
               <tr
                 key={item.id}
                 className={`border-b cursor-pointer ${selectedId === item.id ? "bg-amber-50" : ""}`}

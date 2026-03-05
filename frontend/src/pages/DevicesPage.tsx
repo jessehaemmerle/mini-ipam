@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -23,6 +23,7 @@ export function DevicesPage() {
   const [siteTargets, setSiteTargets] = useState<Record<number, number | "">>({});
   const [newInterfaceName, setNewInterfaceName] = useState("eth0");
   const [newInletName, setNewInletName] = useState("PSU-A");
+  const [filters, setFilters] = useState({ q: "", role: "", status: "", site_id: "" as number | "" });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -42,6 +43,21 @@ export function DevicesPage() {
   useEffect(() => {
     void load();
   }, []);
+
+  const filteredItems = useMemo(() => {
+    const q = filters.q.trim().toLowerCase();
+    return items.filter((item) => {
+      if (filters.role && item.role !== filters.role) return false;
+      if (filters.status && item.status !== filters.status) return false;
+      if (filters.site_id !== "" && (item.site_id ?? null) !== filters.site_id) return false;
+      if (!q) return true;
+      return (
+        item.name.toLowerCase().includes(q) ||
+        (item.serial || "").toLowerCase().includes(q) ||
+        (item.asset_tag || "").toLowerCase().includes(q)
+      );
+    });
+  }, [items, filters]);
 
   const loadDetail = (deviceId: number) => {
     setSelectedId(deviceId);
@@ -264,6 +280,36 @@ export function DevicesPage() {
       </form>
       {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
       {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
+      <div className="card flex flex-wrap gap-2">
+        <input
+          className="input"
+          value={filters.q}
+          onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))}
+          placeholder="Suche Name/Serial/Asset-Tag"
+        />
+        <select className="input" value={filters.role} onChange={(e) => setFilters((prev) => ({ ...prev, role: e.target.value }))}>
+          <option value="">alle Rollen</option>
+          {Array.from(new Set(items.map((item) => item.role))).sort().map((role) => (
+            <option key={role} value={role}>{role}</option>
+          ))}
+        </select>
+        <select className="input" value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}>
+          <option value="">alle Status</option>
+          {Array.from(new Set(items.map((item) => item.status))).sort().map((status) => (
+            <option key={status} value={status}>{status}</option>
+          ))}
+        </select>
+        <select
+          className="input"
+          value={filters.site_id}
+          onChange={(e) => setFilters((prev) => ({ ...prev, site_id: e.target.value ? Number(e.target.value) : "" }))}
+        >
+          <option value="">alle Sites</option>
+          {sites.map((site) => (
+            <option key={site.id} value={site.id}>{site.name}</option>
+          ))}
+        </select>
+      </div>
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -277,7 +323,7 @@ export function DevicesPage() {
             </tr>
           </thead>
           <tbody>
-            {items.map((d) => (
+            {filteredItems.map((d) => (
               <tr
                 key={d.id}
                 className={`border-b cursor-pointer ${selectedId === d.id ? "bg-amber-50" : ""}`}

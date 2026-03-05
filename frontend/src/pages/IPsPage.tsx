@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -8,6 +8,7 @@ export function IPsPage() {
   const [items, setItems] = useState<IPAddress[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [assignTargets, setAssignTargets] = useState<Record<number, number | "">>({});
+  const [filters, setFilters] = useState({ q: "", status: "", assigned: "" as "" | "assigned" | "unassigned" });
   const [form, setForm] = useState({
     address: "",
     vrf_id: 1,
@@ -40,6 +41,19 @@ export function IPsPage() {
   useEffect(() => {
     void load();
   }, []);
+
+  const filteredItems = useMemo(() => {
+    const q = filters.q.trim().toLowerCase();
+    return items.filter((item) => {
+      if (filters.status && item.status !== filters.status) return false;
+      const isAssignedDevice = item.assigned_type === "device" && !!item.assigned_id;
+      if (filters.assigned === "assigned" && !isAssignedDevice) return false;
+      if (filters.assigned === "unassigned" && isAssignedDevice) return false;
+      if (!q) return true;
+      const deviceName = item.assigned_id ? devices.find((d) => d.id === item.assigned_id)?.name || "" : "";
+      return item.address.toLowerCase().includes(q) || (item.dns_name || "").toLowerCase().includes(q) || deviceName.toLowerCase().includes(q);
+    });
+  }, [items, devices, filters]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -169,6 +183,29 @@ export function IPsPage() {
       </form>
       {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
       {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
+      <div className="card flex flex-wrap gap-2">
+        <input
+          className="input"
+          value={filters.q}
+          onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))}
+          placeholder="Suche IP/DNS/Geraet"
+        />
+        <select className="input" value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}>
+          <option value="">alle Status</option>
+          {Array.from(new Set(items.map((item) => item.status))).sort().map((status) => (
+            <option key={status} value={status}>{status}</option>
+          ))}
+        </select>
+        <select
+          className="input"
+          value={filters.assigned}
+          onChange={(e) => setFilters((prev) => ({ ...prev, assigned: e.target.value as "" | "assigned" | "unassigned" }))}
+        >
+          <option value="">alle Zuweisungen</option>
+          <option value="assigned">mit Geraet</option>
+          <option value="unassigned">ohne Geraet</option>
+        </select>
+      </div>
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -181,7 +218,7 @@ export function IPsPage() {
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
+            {filteredItems.map((item) => (
               <tr key={item.id} className="border-b">
                 <td className="p-2 font-semibold">{item.address}</td>
                 <td className="p-2">{item.status}</td>

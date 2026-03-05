@@ -12,6 +12,7 @@ export function RacksPage() {
   const [selectedRack, setSelectedRack] = useState<number | null>(null);
   const [face, setFace] = useState<"front" | "rear">("front");
   const [form, setForm] = useState({ site_id: 1, name: "", height_u: 42 });
+  const [filters, setFilters] = useState({ q: "", minHeight: 0, healthOnly: false });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -39,10 +40,23 @@ export function RacksPage() {
   }, []);
 
   const rack = useMemo(() => racks.find((r) => r.id === selectedRack), [racks, selectedRack]);
+  const filteredRacks = useMemo(() => {
+    const q = filters.q.trim().toLowerCase();
+    return racks.filter((rackItem) => {
+      if (filters.minHeight > 0 && rackItem.height_u < filters.minHeight) return false;
+      if (!q) return true;
+      return rackItem.name.toLowerCase().includes(q) || String(rackItem.site_id).includes(q);
+    });
+  }, [racks, filters]);
   const deviceNames = useMemo(
     () => Object.fromEntries((detail?.devices ?? []).map((d) => [d.device_id, d.name])),
     [detail]
   );
+  const filteredDetailDevices = useMemo(() => {
+    if (!detail) return [];
+    if (!filters.healthOnly) return detail.devices;
+    return detail.devices.filter((d) => d.missing_cable || d.missing_power);
+  }, [detail, filters.healthOnly]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -109,6 +123,28 @@ export function RacksPage() {
       {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
 
       <div className="card flex flex-wrap items-center gap-2">
+        <input
+          className="input"
+          value={filters.q}
+          onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))}
+          placeholder="Rack-Filter Name/Site-ID"
+        />
+        <input
+          className="input w-32"
+          type="number"
+          min={0}
+          value={filters.minHeight}
+          onChange={(e) => setFilters((prev) => ({ ...prev, minHeight: Number(e.target.value) }))}
+          placeholder="Min U"
+        />
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={filters.healthOnly}
+            onChange={(e) => setFilters((prev) => ({ ...prev, healthOnly: e.target.checked }))}
+          />
+          nur Probleme
+        </label>
         <select
           className="input"
           value={selectedRack || ""}
@@ -127,7 +163,7 @@ export function RacksPage() {
             }
           }}
         >
-          {racks.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+          {filteredRacks.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
         </select>
         <button type="button" className="btn" onClick={() => setFace(face === "front" ? "rear" : "front")}>Toggle {face === "front" ? "Rear" : "Front"}</button>
         <button type="button" className="rounded border px-3 py-2 text-sm" onClick={() => void editRack()}>Edit Rack</button>
@@ -150,7 +186,7 @@ export function RacksPage() {
             </div>
           </div>
           <div className="mt-3 max-h-56 overflow-auto text-sm">
-            {detail.devices.map((d) => (
+            {filteredDetailDevices.map((d) => (
               <div key={d.device_id} className="border-b p-2">
                 {d.name} ({d.role}) | {d.placed ? `placed U${d.u_start} (${d.u_height}U)` : "unplaced"} | cable: {d.missing_cable ? "missing" : "ok"} | power: {d.missing_power ? "missing" : "ok"}
               </div>

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -8,6 +8,8 @@ export function SitesPage() {
   const [items, setItems] = useState<Site[]>([]);
   const [racks, setRacks] = useState<Rack[]>([]);
   const [rackSiteTarget, setRackSiteTarget] = useState<Record<number, number>>({});
+  const [siteFilter, setSiteFilter] = useState("");
+  const [rackFilter, setRackFilter] = useState({ q: "", site_id: "" as number | "" });
   const [form, setForm] = useState({ name: "", code: "" });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -25,6 +27,21 @@ export function SitesPage() {
   useEffect(() => {
     void load();
   }, []);
+
+  const filteredSites = useMemo(() => {
+    const q = siteFilter.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((site) => site.name.toLowerCase().includes(q) || site.code.toLowerCase().includes(q));
+  }, [items, siteFilter]);
+
+  const filteredRacks = useMemo(() => {
+    const q = rackFilter.q.trim().toLowerCase();
+    return racks.filter((rack) => {
+      if (rackFilter.site_id !== "" && rack.site_id !== rackFilter.site_id) return false;
+      if (!q) return true;
+      return rack.name.toLowerCase().includes(q);
+    });
+  }, [racks, rackFilter]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -104,8 +121,11 @@ export function SitesPage() {
       {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
       {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
 
+      <div className="card">
+        <input className="input" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)} placeholder="Sites filtern (Name/Code)" />
+      </div>
       <div className="card grid gap-2">
-        {items.map((site) => (
+        {filteredSites.map((site) => (
           <div key={site.id} className="flex items-center justify-between rounded-md border border-slate-200 p-3">
             <span>{site.name} ({site.code})</span>
             <span>
@@ -118,8 +138,26 @@ export function SitesPage() {
 
       <div className="card">
         <h3 className="mb-2 text-lg font-semibold">Racks zu Sites zuordnen</h3>
+        <div className="mb-2 flex flex-wrap gap-2">
+          <input
+            className="input"
+            value={rackFilter.q}
+            onChange={(e) => setRackFilter((prev) => ({ ...prev, q: e.target.value }))}
+            placeholder="Rack filtern (Name)"
+          />
+          <select
+            className="input"
+            value={rackFilter.site_id}
+            onChange={(e) => setRackFilter((prev) => ({ ...prev, site_id: e.target.value ? Number(e.target.value) : "" }))}
+          >
+            <option value="">alle Sites</option>
+            {items.map((site) => (
+              <option key={`rack-filter-site-${site.id}`} value={site.id}>{site.name}</option>
+            ))}
+          </select>
+        </div>
         <div className="space-y-2">
-          {racks.map((rack) => (
+          {filteredRacks.map((rack) => (
             <div key={rack.id} className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 p-2">
               <span className="w-40 text-sm font-medium">{rack.name}</span>
               <select

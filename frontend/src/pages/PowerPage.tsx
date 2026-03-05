@@ -15,6 +15,7 @@ export function PowerPage() {
   const [map, setMap] = useState<Array<Record<string, unknown>>>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [filters, setFilters] = useState({ q: "", device_id: "" as number | "" });
   const [editingInletId, setEditingInletId] = useState<number | null>(null);
   const [editingOutletId, setEditingOutletId] = useState<number | null>(null);
   const [editingConnectionId, setEditingConnectionId] = useState<number | null>(null);
@@ -75,6 +76,40 @@ export function PowerPage() {
     }
     return { nodes: Array.from(nodeMap.values()), edges };
   }, [connections, inletById, outletById, deviceById]);
+  const filteredInlets = useMemo(() => {
+    const q = filters.q.trim().toLowerCase();
+    return inlets.filter((item) => {
+      if (filters.device_id !== "" && item.device_id !== filters.device_id) return false;
+      if (!q) return true;
+      return item.name.toLowerCase().includes(q) || (deviceById[item.device_id] || "").toLowerCase().includes(q);
+    });
+  }, [inlets, filters, deviceById]);
+  const filteredOutlets = useMemo(() => {
+    const q = filters.q.trim().toLowerCase();
+    return outlets.filter((item) => {
+      if (filters.device_id !== "" && item.pdu_device_id !== filters.device_id) return false;
+      if (!q) return true;
+      return item.name.toLowerCase().includes(q) || (deviceById[item.pdu_device_id] || "").toLowerCase().includes(q);
+    });
+  }, [outlets, filters, deviceById]);
+  const filteredConnections = useMemo(() => {
+    const q = filters.q.trim().toLowerCase();
+    return connections.filter((item) => {
+      const srcName = item.src_type === "power_inlet" && inletById[item.src_id]
+        ? `${inletById[item.src_id].name} ${deviceById[inletById[item.src_id].device_id] || ""}`.toLowerCase()
+        : `${item.src_type}:${item.src_id}`.toLowerCase();
+      const dstName = item.dst_type === "pdu_outlet" && outletById[item.dst_id]
+        ? `${outletById[item.dst_id].name} ${deviceById[outletById[item.dst_id].pdu_device_id] || ""}`.toLowerCase()
+        : `${item.dst_type}:${item.dst_id}`.toLowerCase();
+      if (filters.device_id !== "") {
+        const srcDevice = item.src_type === "power_inlet" && inletById[item.src_id] ? inletById[item.src_id].device_id : null;
+        const dstDevice = item.dst_type === "pdu_outlet" && outletById[item.dst_id] ? outletById[item.dst_id].pdu_device_id : null;
+        if (srcDevice !== filters.device_id && dstDevice !== filters.device_id) return false;
+      }
+      if (!q) return true;
+      return String(item.id).includes(q) || srcName.includes(q) || dstName.includes(q);
+    });
+  }, [connections, filters, inletById, outletById, deviceById]);
 
   const load = async () => {
     const [deviceData, rackData, inletData, outletData, connectionData] = await Promise.all([
@@ -259,6 +294,22 @@ export function PowerPage() {
       <PageHeader title="Power" subtitle="Inlets/Outlets anlegen, verbinden und Rack-Map anzeigen" />
       {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
       {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
+      <div className="card flex flex-wrap gap-2">
+        <input
+          className="input"
+          value={filters.q}
+          onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))}
+          placeholder="Filter Name/ID/Device"
+        />
+        <select
+          className="input"
+          value={filters.device_id}
+          onChange={(e) => setFilters((prev) => ({ ...prev, device_id: e.target.value ? Number(e.target.value) : "" }))}
+        >
+          <option value="">alle Devices</option>
+          {devices.map((d) => <option key={`power-filter-device-${d.id}`} value={d.id}>{d.name}</option>)}
+        </select>
+      </div>
 
       <form className="card flex flex-wrap items-end gap-2" onSubmit={submitInlet}>
         <div>
@@ -308,7 +359,7 @@ export function PowerPage() {
         <table className="w-full text-sm">
           <thead><tr className="border-b text-left"><th className="p-2">ID</th><th className="p-2">Name</th><th className="p-2">Device</th><th className="p-2">Actions</th></tr></thead>
           <tbody>
-            {inlets.map((i) => (
+            {filteredInlets.map((i) => (
               <tr key={i.id} className="border-b">
                 <td className="p-2">{i.id}</td>
                 <td className="p-2">{i.name}</td>
@@ -328,7 +379,7 @@ export function PowerPage() {
         <table className="w-full text-sm">
           <thead><tr className="border-b text-left"><th className="p-2">ID</th><th className="p-2">Name</th><th className="p-2">PDU/UPS</th><th className="p-2">Actions</th></tr></thead>
           <tbody>
-            {outlets.map((o) => (
+            {filteredOutlets.map((o) => (
               <tr key={o.id} className="border-b">
                 <td className="p-2">{o.id}</td>
                 <td className="p-2">{o.name}</td>
@@ -348,7 +399,7 @@ export function PowerPage() {
         <table className="w-full text-sm">
           <thead><tr className="border-b text-left"><th className="p-2">ID</th><th className="p-2">Source</th><th className="p-2">Target</th><th className="p-2">Actions</th></tr></thead>
           <tbody>
-            {connections.map((c) => (
+            {filteredConnections.map((c) => (
               <tr key={c.id} className="border-b">
                 <td className="p-2">{c.id}</td>
                 <td className="p-2">
