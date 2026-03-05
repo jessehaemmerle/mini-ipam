@@ -14,6 +14,11 @@ body {
   background: radial-gradient(circle at 20% 20%, #fef4dd 0%, #f6f7f2 35%, #eef1ed 100%);
 }
 
+html.dark body {
+  color: #e5e7eb;
+  background: radial-gradient(circle at 20% 20%, #1f2937 0%, #0f172a 45%, #020617 100%);
+}
+
 .card {
   @apply rounded-xl border border-slate-200 bg-white p-4 shadow-sm;
 }
@@ -28,4 +33,41 @@ body {
 
 .muted {
   @apply text-sm text-slate-500;
+}
+
+html.dark .card {
+  background: #0f172a;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+html.dark .input {
+  background: #0b1220;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+html.dark .input::placeholder {
+  color: #94a3b8;
+}
+
+html.dark .btn {
+  background: #256c52;
+}
+
+html.dark .muted {
+  color: #94a3b8;
+}
+
+html.dark .app-sidebar {
+  background: #0b1220 !important;
+  border-color: #334155 !important;
+}
+
+html.dark .app-sidebar a {
+  color: #cbd5e1;
+}
+
+html.dark .app-sidebar a:hover {
+  background: #1e293b;
 }

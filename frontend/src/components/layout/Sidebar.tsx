@@ -1,23 +1,27 @@
 import { NavLink } from "react-router-dom";
 
-const nav = [
-  ["Dashboard", "/"],
-  ["Prefixes", "/ipam/prefixes"],
-  ["IPs", "/ipam/ips"],
-  ["VRFs", "/ipam/vrfs"],
-  ["VLANs", "/vlans"],
-  ["Sites", "/sites"],
-  ["Racks", "/racks"],
-  ["Devices", "/devices"],
-  ["Cabling", "/cabling"],
-  ["Power", "/power"],
-  ["Reports", "/reports"],
-  ["Admin", "/admin"]
-];
+import { useSettings } from "../../context/SettingsContext";
 
 export function Sidebar() {
+  const { labels } = useSettings();
+  const nav = [
+    [labels.nav.dashboard, "/"],
+    [labels.nav.prefixes, "/ipam/prefixes"],
+    [labels.nav.ips, "/ipam/ips"],
+    [labels.nav.vrfs, "/ipam/vrfs"],
+    [labels.nav.vlans, "/vlans"],
+    [labels.nav.sites, "/sites"],
+    [labels.nav.racks, "/racks"],
+    [labels.nav.devices, "/devices"],
+    [labels.nav.cabling, "/cabling"],
+    [labels.nav.power, "/power"],
+    [labels.nav.reports, "/reports"],
+    [labels.nav.admin, "/admin"],
+    [labels.nav.settings, "/settings"],
+  ];
+
   return (
-    <aside className="w-60 border-r border-slate-200 bg-white p-4">
+    <aside className="app-sidebar w-60 border-r border-slate-200 bg-white p-4">
       <div className="mb-6 rounded-lg bg-ink p-3 text-white">
         <h1 className="text-lg font-bold">mini-ipam</h1>
         <p className="text-xs text-slate-300">IPAM-first DCIM</p>
