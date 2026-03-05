@@ -1,3 +1,5 @@
+import { PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+
 type Node = {
   id: string;
   label: string;
@@ -19,13 +21,69 @@ type Props = {
 export function PowerGraph({ nodes, edges }: Props) {
   const width = 1200;
   const height = 380;
-  const spacing = Math.max(150, Math.floor((width - 160) / Math.max(nodes.length, 1)));
-  const layout = nodes.map((node, index) => ({
-    ...node,
-    x: 80 + index * spacing,
-    y: index % 2 === 0 ? 110 : 270,
-  }));
-  const byId = Object.fromEntries(layout.map((item) => [item.id, item]));
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const dragRef = useRef<{ id: string; dx: number; dy: number } | null>(null);
+  const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
+
+  const defaults = useMemo(() => {
+    const spacing = Math.max(150, Math.floor((width - 160) / Math.max(nodes.length, 1)));
+    return Object.fromEntries(
+      nodes.map((node, index) => [
+        node.id,
+        {
+          x: 80 + index * spacing,
+          y: index % 2 === 0 ? 110 : 270,
+        },
+      ])
+    );
+  }, [nodes]);
+
+  useEffect(() => {
+    setPositions((prev) => {
+      const next: Record<string, { x: number; y: number }> = {};
+      nodes.forEach((node) => {
+        next[node.id] = prev[node.id] || defaults[node.id];
+      });
+      return next;
+    });
+  }, [nodes, defaults]);
+
+  const byId = Object.fromEntries(
+    nodes.map((node) => [node.id, { ...node, ...(positions[node.id] || defaults[node.id]) }])
+  );
+
+  const toSvgPoint = (event: PointerEvent<SVGElement>) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    return {
+      x: ((event.clientX - rect.left) / rect.width) * width,
+      y: ((event.clientY - rect.top) / rect.height) * height,
+    };
+  };
+
+  const onNodePointerDown = (event: PointerEvent<SVGGElement>, nodeId: string) => {
+    event.preventDefault();
+    const current = byId[nodeId];
+    if (!current) return;
+    const p = toSvgPoint(event);
+    dragRef.current = { id: nodeId, dx: current.x - p.x, dy: current.y - p.y };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onPointerMove = (event: PointerEvent<SVGSVGElement>) => {
+    if (!dragRef.current) return;
+    const p = toSvgPoint(event);
+    const nextX = Math.max(66, Math.min(width - 66, p.x + dragRef.current.dx));
+    const nextY = Math.max(28, Math.min(height - 28, p.y + dragRef.current.dy));
+    setPositions((prev) => ({
+      ...prev,
+      [dragRef.current!.id]: { x: nextX, y: nextY },
+    }));
+  };
+
+  const onPointerUp = () => {
+    dragRef.current = null;
+  };
 
   const grouped = new Map<string, Edge[]>();
   for (const edge of edges) {
@@ -39,7 +97,15 @@ export function PowerGraph({ nodes, edges }: Props) {
   }
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-96 w-full rounded-lg border border-slate-300 bg-white">
+    <svg
+      ref={svgRef}
+      viewBox={`0 0 ${width} ${height}`}
+      className="h-96 w-full rounded-lg border border-slate-300 bg-white"
+      style={{ touchAction: "none", userSelect: "none" }}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerLeave={onPointerUp}
+    >
       {edges.map((edge, idx) => {
         const from = byId[edge.from];
         const to = byId[edge.to];
@@ -67,18 +133,22 @@ export function PowerGraph({ nodes, edges }: Props) {
           </g>
         );
       })}
-      {layout.map((node) => (
-        <g key={node.id}>
+      {nodes.map((node) => {
+        const pos = byId[node.id];
+        if (!pos) return null;
+        return (
+        <g key={node.id} onPointerDown={(event) => onNodePointerDown(event, node.id)} className="cursor-grab">
           {node.kind === "device" ? (
-            <rect x={node.x - 66} y={node.y - 18} width="132" height="36" rx="7" fill="#0f172a" />
+            <rect x={pos.x - 66} y={pos.y - 18} width="132" height="36" rx="7" fill="#0f172a" />
           ) : (
-            <ellipse cx={node.x} cy={node.y} rx="64" ry="20" fill="#1e293b" />
+            <ellipse cx={pos.x} cy={pos.y} rx="64" ry="20" fill="#1e293b" />
           )}
-          <text x={node.x} y={node.y + 4} fontSize="10" textAnchor="middle" fill="#fff">
+          <text x={pos.x} y={pos.y + 4} fontSize="10" textAnchor="middle" fill="#fff">
             {node.label.length > 28 ? `${node.label.slice(0, 28)}...` : node.label}
           </text>
         </g>
-      ))}
+      );
+      })}
     </svg>
   );
 }
