@@ -2,12 +2,38 @@ import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
 
 import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
-import { Device, IPAddress, Vrf } from "../types";
+import { Device, IPAddress, Prefix, Vrf } from "../types";
+
+function isIPv4(value: string): boolean {
+  const parts = value.split(".");
+  if (parts.length !== 4) return false;
+  return parts.every((part) => {
+    if (!/^\d+$/.test(part)) return false;
+    const n = Number(part);
+    return n >= 0 && n <= 255;
+  });
+}
+
+function ipv4ToInt(value: string): number {
+  const [a, b, c, d] = value.split(".").map((item) => Number(item));
+  return ((a << 24) >>> 0) + ((b << 16) >>> 0) + ((c << 8) >>> 0) + d;
+}
+
+function isIpInCidrV4(ip: string, cidr: string): boolean {
+  const [network, prefix] = cidr.split("/");
+  if (!network || !prefix) return false;
+  if (!isIPv4(ip) || !isIPv4(network)) return false;
+  const prefixLen = Number(prefix);
+  if (!Number.isInteger(prefixLen) || prefixLen < 0 || prefixLen > 32) return false;
+  const mask = prefixLen === 0 ? 0 : ((0xffffffff << (32 - prefixLen)) >>> 0);
+  return (ipv4ToInt(ip) & mask) === (ipv4ToInt(network) & mask);
+}
 
 export function IPsPage() {
   const [items, setItems] = useState<IPAddress[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [vrfs, setVrfs] = useState<Vrf[]>([]);
+  const [prefixes, setPrefixes] = useState<Prefix[]>([]);
   const [assignTargets, setAssignTargets] = useState<Record<number, number | "">>({});
   const [filters, setFilters] = useState({ q: "", status: "", assigned: "" as "" | "assigned" | "unassigned" });
   const [form, setForm] = useState({
@@ -15,6 +41,7 @@ export function IPsPage() {
     vrf_id: 1,
     status: "reserved",
     dns_name: "",
+    out_of_scope: false,
     assigned_type: "" as "" | "device",
     assigned_id: "" as number | "",
   });
@@ -27,14 +54,16 @@ export function IPsPage() {
   const [assignSavingId, setAssignSavingId] = useState<number | null>(null);
 
   const load = async () => {
-    const [ipData, deviceData, vrfData] = await Promise.all([
+    const [ipData, deviceData, vrfData, prefixData] = await Promise.all([
       get<IPAddress[]>("/ipam/ips"),
       get<Device[]>("/dcim/devices"),
       get<Vrf[]>("/ipam/vrfs"),
+      get<Prefix[]>("/ipam/prefixes"),
     ]);
     setItems(ipData);
     setDevices(deviceData);
     setVrfs(vrfData);
+    setPrefixes(prefixData);
     setForm((prev) => {
       if (vrfData.some((item) => item.id === prev.vrf_id)) return prev;
       return { ...prev, vrf_id: vrfData[0]?.id ?? prev.vrf_id };
@@ -66,6 +95,24 @@ export function IPsPage() {
     });
   }, [items, devices, filters]);
 
+  const selectedVrfPrefixes = useMemo(
+    () => prefixes.filter((prefix) => prefix.vrf_id === form.vrf_id),
+    [prefixes, form.vrf_id]
+  );
+
+  const ipPrefixCheck = useMemo(() => {
+    const address = form.address.trim();
+    if (!address) return { state: "empty" as const, matching: [] as Prefix[] };
+    if (address.includes(":")) {
+      return { state: "ipv6" as const, matching: [] as Prefix[] };
+    }
+    if (!isIPv4(address)) {
+      return { state: "invalid" as const, matching: [] as Prefix[] };
+    }
+    const matching = selectedVrfPrefixes.filter((prefix) => isIpInCidrV4(address, prefix.cidr));
+    return { state: matching.length > 0 ? ("in_scope" as const) : ("out_scope" as const), matching };
+  }, [form.address, selectedVrfPrefixes]);
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!form.address.trim()) {
@@ -75,6 +122,16 @@ export function IPsPage() {
     }
     if (!vrfs.length) {
       setError("Keine VRF vorhanden. Bitte zuerst eine VRF anlegen.");
+      setMessage("");
+      return;
+    }
+    if (!form.out_of_scope && ipPrefixCheck.state === "invalid") {
+      setError("IP-Format ungueltig.");
+      setMessage("");
+      return;
+    }
+    if (!form.out_of_scope && ipPrefixCheck.state === "out_scope") {
+      setError("IP liegt in keinem bekannten Prefix der ausgewaehlten VRF.");
       setMessage("");
       return;
     }
@@ -88,11 +145,11 @@ export function IPsPage() {
         status: form.status,
         dns_name: form.dns_name.trim() || null,
         description: null,
-        out_of_scope: false,
+        out_of_scope: form.out_of_scope,
         assigned_type: form.assigned_type || null,
         assigned_id: form.assigned_type === "device" && form.assigned_id !== "" ? form.assigned_id : null,
       });
-      setForm({ ...form, address: "", dns_name: "", assigned_type: "", assigned_id: "" });
+      setForm({ ...form, address: "", dns_name: "", out_of_scope: false, assigned_type: "", assigned_id: "" });
       await load();
       setMessage("IP erfolgreich gespeichert.");
     } catch (err: unknown) {
@@ -204,6 +261,20 @@ export function IPsPage() {
         <div className="field md:col-span-2">
           <label className="field-label" htmlFor="ip-address">IP-Adresse</label>
           <input id="ip-address" className="input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="10.10.0.12" />
+          {ipPrefixCheck.state === "invalid" && (
+            <p className="field-hint text-red-700">Ungueltiges IPv4-Format.</p>
+          )}
+          {ipPrefixCheck.state === "ipv6" && !form.out_of_scope && (
+            <p className="field-hint text-amber-700">IPv6 wird serverseitig geprueft. Falls noetig, "out of scope" aktivieren.</p>
+          )}
+          {ipPrefixCheck.state === "in_scope" && (
+            <p className="field-hint text-green-700">IP liegt in Prefix: {ipPrefixCheck.matching[0].cidr}</p>
+          )}
+          {ipPrefixCheck.state === "out_scope" && !form.out_of_scope && (
+            <p className="field-hint text-amber-700">
+              IP liegt in keinem bekannten Prefix dieser VRF. Vorschlag: Prefix anlegen oder "out of scope" aktivieren.
+            </p>
+          )}
         </div>
         <div className="field md:col-span-2">
           <label className="field-label" htmlFor="ip-dns">DNS Name</label>
@@ -232,6 +303,23 @@ export function IPsPage() {
               </option>
             ))}
           </select>
+        </div>
+        <div className="field md:col-span-2">
+          <label className="field-label" htmlFor="ip-out-of-scope">Prefix-Pruefung</label>
+          <label className="flex items-center gap-2 text-sm text-slate-700" htmlFor="ip-out-of-scope">
+            <input
+              id="ip-out-of-scope"
+              type="checkbox"
+              checked={form.out_of_scope}
+              onChange={(e) => setForm({ ...form, out_of_scope: e.target.checked })}
+            />
+            IP ausserhalb bekannter Prefixe in der VRF erlauben
+          </label>
+          {!form.out_of_scope && (
+            <p className="field-hint">
+              Bekannte Prefixe in VRF: {selectedVrfPrefixes.length ? selectedVrfPrefixes.map((item) => item.cidr).join(", ") : "keine"}
+            </p>
+          )}
         </div>
         <div className="field md:col-span-2">
           <label className="field-label" htmlFor="ip-assign-type">Zuweisung</label>
