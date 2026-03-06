@@ -3,12 +3,13 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_roles
 from app.core.config import settings
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.security import create_access_token, verify_password
 from app.db.session import get_db
 from app.models.entities import RoleEnum, SessionToken, User
 from app.schemas.auth import LoginRequest, UserOut
+from app.services.bootstrap import create_initial_admin, seed_demo_data
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -55,16 +56,21 @@ def me(user: User = Depends(get_current_user)):
 
 @router.post("/bootstrap")
 def bootstrap_admin(db: Session = Depends(get_db)):
-    existing = db.query(User).count()
-    if existing > 0:
-        return {"message": "already bootstrapped"}
-    admin = User(
+    admin = create_initial_admin(
+        db,
         username=settings.admin_user,
-        password_hash=hash_password(settings.admin_pass),
-        role=RoleEnum.admin,
-        last_changed_by="system",
+        password=settings.admin_pass,
     )
-    db.add(admin)
-    db.commit()
+    if not admin:
+        return {"message": "already bootstrapped"}
     return {"message": "admin created", "username": settings.admin_user}
+
+
+@router.post("/bootstrap-demo")
+def bootstrap_demo_data(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(RoleEnum.admin)),
+):
+    created = seed_demo_data(db, actor=user.username)
+    return {"message": "demo seed complete", "created": created}
 

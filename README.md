@@ -56,6 +56,18 @@ Default-Admin bei Erststart via ENV:
 - `ADMIN_USER`
 - `ADMIN_PASS`
 
+Initialer Bootstrap (explizit, nach Container-Start):
+
+```bash
+curl -X POST http://localhost:8000/api/auth/bootstrap
+```
+
+Optional Demo-Daten seeden (nach Login als Admin):
+
+```bash
+curl -X POST --cookie "session_token=..." http://localhost:8000/api/auth/bootstrap-demo
+```
+
 ## ENV Konfiguration
 
 Wichtige Variablen:
@@ -107,6 +119,13 @@ Login:
 curl -i -X POST http://localhost:8000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"admin"}'
+```
+
+Alternativ CLI-Bootstrap (lokale Entwicklung):
+
+```bash
+cd backend
+python -m app.scripts.bootstrap --seed-demo
 ```
 
 Prefix anlegen:

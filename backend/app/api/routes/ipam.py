@@ -5,7 +5,8 @@ from ipaddress import summarize_address_range
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, literal
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_roles
@@ -16,6 +17,62 @@ from app.services.audit import record_change, stamp_change
 from app.utils.ipam import ip_in_prefix, next_free_ip, parse_cidr, parse_ip, split_prefix
 
 router = APIRouter(prefix="/ipam", tags=["ipam"])
+
+
+def _is_postgres(db: Session) -> bool:
+    bind = db.get_bind()
+    return bool(bind and bind.dialect.name == "postgresql")
+
+
+def _count_used_ips_in_prefix(db: Session, *, prefix: Prefix) -> int:
+    if _is_postgres(db):
+        return int(
+            db.query(func.count(IPAddress.id))
+            .filter(
+                IPAddress.vrf_id == prefix.vrf_id,
+                IPAddress.status.in_(["reserved", "assigned"]),
+                IPAddress.address.cast(postgresql.INET).op("<<")(literal(prefix.cidr).cast(postgresql.CIDR)),
+            )
+            .scalar()
+            or 0
+        )
+
+    ips = (
+        db.query(IPAddress.address)
+        .filter(IPAddress.vrf_id == prefix.vrf_id, IPAddress.status.in_(["reserved", "assigned"]))
+        .all()
+    )
+    return sum(1 for (address,) in ips if ip_in_prefix(address, prefix.cidr))
+
+
+def _query_ips_in_prefix(
+    db: Session,
+    *,
+    prefix: Prefix,
+    statuses: list[str] | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+) -> list[IPAddress]:
+    query = db.query(IPAddress).filter(IPAddress.vrf_id == prefix.vrf_id)
+    if statuses:
+        query = query.filter(IPAddress.status.in_(statuses))
+
+    if _is_postgres(db):
+        query = query.filter(
+            IPAddress.address.cast(postgresql.INET).op("<<")(literal(prefix.cidr).cast(postgresql.CIDR))
+        )
+        query = query.order_by(IPAddress.address.asc()).offset(offset)
+        if limit is not None:
+            query = query.limit(limit)
+        return query.all()
+
+    items = query.order_by(IPAddress.address.asc()).all()
+    filtered = [item for item in items if ip_in_prefix(item.address, prefix.cidr)]
+    if offset:
+        filtered = filtered[offset:]
+    if limit is not None:
+        filtered = filtered[:limit]
+    return filtered
 
 
 def _validate_assignment(db: Session, payload: IPCreate) -> None:
@@ -92,6 +149,8 @@ def list_prefixes(
     vrf_id: int | None = None,
     role: str | None = None,
     status: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
     _=Depends(require_roles(RoleEnum.admin, RoleEnum.editor, RoleEnum.readonly)),
 ):
     query = db.query(Prefix)
@@ -103,7 +162,10 @@ def list_prefixes(
         query = query.filter(Prefix.role == role)
     if status:
         query = query.filter(Prefix.status == status)
-    return query.order_by(Prefix.cidr.asc()).all()
+    query = query.order_by(Prefix.cidr.asc()).offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
 
 
 @router.post("/prefixes")
@@ -171,11 +233,7 @@ def prefix_utilization(prefix_id: int, db: Session = Depends(get_db), _=Depends(
         raise HTTPException(status_code=404, detail="Prefix not found")
     network = parse_cidr(prefix.cidr)
     total_hosts = max(network.num_addresses - (2 if network.version == 4 and network.prefixlen < 31 else 0), 0)
-    used = 0
-    ips = db.query(IPAddress).filter(IPAddress.vrf_id == prefix.vrf_id).all()
-    for item in ips:
-        if ip_in_prefix(item.address, prefix.cidr) and item.status in {"reserved", "assigned"}:
-            used += 1
+    used = _count_used_ips_in_prefix(db, prefix=prefix)
     free = max(total_hosts - used, 0)
     pct = round((used / total_hosts) * 100, 2) if total_hosts else 0
     return {"prefix": prefix.cidr, "used": used, "free": free, "utilization_pct": pct}
@@ -184,6 +242,8 @@ def prefix_utilization(prefix_id: int, db: Session = Depends(get_db), _=Depends(
 @router.get("/prefixes/{prefix_id}/detail")
 def prefix_detail(
     prefix_id: int,
+    ip_limit: int = 500,
+    ip_offset: int = 0,
     db: Session = Depends(get_db),
     _=Depends(require_roles(RoleEnum.admin, RoleEnum.editor, RoleEnum.readonly)),
 ):
@@ -193,11 +253,7 @@ def prefix_detail(
 
     utilization = prefix_utilization(prefix_id=prefix_id, db=db)
     next_ip = prefix_next_free_ip(prefix_id=prefix_id, db=db)
-    ips = [
-        ip
-        for ip in db.query(IPAddress).filter(IPAddress.vrf_id == prefix.vrf_id).order_by(IPAddress.address.asc()).all()
-        if ip_in_prefix(ip.address, prefix.cidr)
-    ]
+    ips = _query_ips_in_prefix(db, prefix=prefix, limit=ip_limit, offset=ip_offset)
     history = (
         db.query(ObjectHistory)
         .filter(ObjectHistory.object_type == "prefix", ObjectHistory.object_id == prefix.id)
@@ -221,13 +277,13 @@ def prefix_next_free_ip(prefix_id: int, db: Session = Depends(get_db), _=Depends
         raise HTTPException(status_code=404, detail="Prefix not found")
     used_ips = [
         item.address
-        for item in db.query(IPAddress)
-        .filter(
-            IPAddress.vrf_id == prefix.vrf_id,
-            IPAddress.status.in_(["reserved", "assigned"]),
+        for item in _query_ips_in_prefix(
+            db,
+            prefix=prefix,
+            statuses=["reserved", "assigned"],
+            limit=None,
+            offset=0,
         )
-        .all()
-        if ip_in_prefix(item.address, prefix.cidr)
     ]
     free_ip = next_free_ip(prefix.cidr, used_ips)
     return {"next_free_ip": free_ip}
@@ -252,11 +308,20 @@ def prefix_merge(cidr_list: list[str], _=Depends(require_roles(RoleEnum.admin, R
 
 
 @router.get("/ips")
-def list_ips(db: Session = Depends(get_db), q: str | None = None, _=Depends(require_roles(RoleEnum.admin, RoleEnum.editor, RoleEnum.readonly))):
+def list_ips(
+    db: Session = Depends(get_db),
+    q: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+    _=Depends(require_roles(RoleEnum.admin, RoleEnum.editor, RoleEnum.readonly)),
+):
     query = db.query(IPAddress)
     if q:
         query = query.filter(IPAddress.address.ilike(f"%{q}%"))
-    return query.order_by(IPAddress.address.asc()).all()
+    query = query.order_by(IPAddress.address.asc()).offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
 
 
 @router.post("/ips")
