@@ -52,13 +52,14 @@ export function CablePathGraph({ nodes, edges }: Props) {
   };
 
   const onPointerMove = (event: PointerEvent<SVGSVGElement>) => {
-    if (!dragRef.current) return;
+    const drag = dragRef.current;
+    if (!drag) return;
     const p = toSvgPoint(event);
-    const nextX = Math.max(30, Math.min(width - 30, p.x + dragRef.current.dx));
-    const nextY = Math.max(30, Math.min(height - 30, p.y + dragRef.current.dy));
+    const nextX = Math.max(30, Math.min(width - 30, p.x + drag.dx));
+    const nextY = Math.max(30, Math.min(height - 30, p.y + drag.dy));
     setPositions((prev) => ({
       ...prev,
-      [dragRef.current!.id]: { x: nextX, y: nextY },
+      [drag.id]: { x: nextX, y: nextY },
     }));
   };
 
