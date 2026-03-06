@@ -11,7 +11,7 @@ export function PowerPage() {
   const [inlets, setInlets] = useState<PowerInlet[]>([]);
   const [outlets, setOutlets] = useState<PDUOutlet[]>([]);
   const [connections, setConnections] = useState<PowerConnection[]>([]);
-  const [rackId, setRackId] = useState<number>(1);
+  const [rackId, setRackId] = useState<number>(0);
   const [map, setMap] = useState<Array<Record<string, unknown>>>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -19,6 +19,7 @@ export function PowerPage() {
   const [editingInletId, setEditingInletId] = useState<number | null>(null);
   const [editingOutletId, setEditingOutletId] = useState<number | null>(null);
   const [editingConnectionId, setEditingConnectionId] = useState<number | null>(null);
+  const [showOnlyUnconnected, setShowOnlyUnconnected] = useState(true);
 
   const [inletForm, setInletForm] = useState({ device_id: 0, name: "PSU-A" });
   const [outletForm, setOutletForm] = useState({ pdu_device_id: 0, name: "Outlet-1" });
@@ -110,6 +111,22 @@ export function PowerPage() {
       return String(item.id).includes(q) || srcName.includes(q) || dstName.includes(q);
     });
   }, [connections, filters, inletById, outletById, deviceById]);
+  const connectedInletIds = useMemo(
+    () => new Set(connections.filter((c) => c.src_type === "power_inlet").map((c) => c.src_id)),
+    [connections]
+  );
+  const connectedOutletIds = useMemo(
+    () => new Set(connections.filter((c) => c.dst_type === "pdu_outlet").map((c) => c.dst_id)),
+    [connections]
+  );
+  const connectableInlets = useMemo(() => {
+    if (!showOnlyUnconnected || editingConnectionId) return inlets;
+    return inlets.filter((i) => !connectedInletIds.has(i.id));
+  }, [inlets, showOnlyUnconnected, editingConnectionId, connectedInletIds]);
+  const connectableOutlets = useMemo(() => {
+    if (!showOnlyUnconnected || editingConnectionId) return outlets;
+    return outlets.filter((o) => !connectedOutletIds.has(o.id));
+  }, [outlets, showOnlyUnconnected, editingConnectionId, connectedOutletIds]);
 
   const load = async () => {
     const [deviceData, rackData, inletData, outletData, connectionData] = await Promise.all([
@@ -125,7 +142,9 @@ export function PowerPage() {
     setOutlets(outletData);
     setConnections(connectionData);
 
-    if (rackData[0]?.id && !rackId) setRackId(rackData[0].id);
+    if (!rackId || !rackData.some((rack) => rack.id === rackId)) {
+      setRackId(rackData[0]?.id || 0);
+    }
     setInletForm((prev) => ({ ...prev, device_id: prev.device_id || deviceData[0]?.id || 0 }));
     setOutletForm((prev) => ({ ...prev, pdu_device_id: prev.pdu_device_id || deviceData.find((d) => d.role === "pdu")?.id || deviceData[0]?.id || 0 }));
     setConnectionForm((prev) => ({ ...prev, src_id: prev.src_id || inletData[0]?.id || 0, dst_id: prev.dst_id || outletData[0]?.id || 0 }));
@@ -144,8 +163,25 @@ export function PowerPage() {
     })();
   }, []);
 
+  useEffect(() => {
+    if (!rackId) return;
+    void loadMap(rackId);
+  }, [rackId]);
+
+  useEffect(() => {
+    setConnectionForm((prev) => ({
+      src_id: connectableInlets.some((item) => item.id === prev.src_id) ? prev.src_id : (connectableInlets[0]?.id || 0),
+      dst_id: connectableOutlets.some((item) => item.id === prev.dst_id) ? prev.dst_id : (connectableOutlets[0]?.id || 0),
+    }));
+  }, [connectableInlets, connectableOutlets]);
+
   const submitInlet = async (e: FormEvent) => {
     e.preventDefault();
+    if (!inletForm.device_id || !inletForm.name.trim()) {
+      setError("Bitte Device und Inlet-Name ausfuellen.");
+      setMessage("");
+      return;
+    }
     try {
       if (editingInletId) {
         await put(`/dcim/power/inlets/${editingInletId}`, inletForm);
@@ -164,6 +200,11 @@ export function PowerPage() {
 
   const submitOutlet = async (e: FormEvent) => {
     e.preventDefault();
+    if (!outletForm.pdu_device_id || !outletForm.name.trim()) {
+      setError("Bitte PDU/UPS Device und Outlet-Name ausfuellen.");
+      setMessage("");
+      return;
+    }
     try {
       if (editingOutletId) {
         await put(`/dcim/power/outlets/${editingOutletId}`, outletForm);
@@ -236,6 +277,11 @@ export function PowerPage() {
 
   const submitConnection = async (e: FormEvent) => {
     e.preventDefault();
+    if (!connectionForm.src_id || !connectionForm.dst_id) {
+      setError("Bitte Inlet und Outlet auswaehlen.");
+      setMessage("");
+      return;
+    }
     try {
       const payload = {
         src_type: "power_inlet",
@@ -291,15 +337,33 @@ export function PowerPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Power" subtitle="Inlets/Outlets anlegen, verbinden und Rack-Map anzeigen" />
+      <PageHeader title="Power" subtitle="Einfacher Workflow: Endpunkte anlegen, verbinden, Rack-Map automatisch aktualisieren" />
       {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
       {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
+      <div className="grid gap-3 md:grid-cols-4">
+        <div className="card">
+          <p className="text-xs uppercase tracking-wide text-slate-500">Devices</p>
+          <p className="text-2xl font-semibold">{devices.length}</p>
+        </div>
+        <div className="card">
+          <p className="text-xs uppercase tracking-wide text-slate-500">Inlets</p>
+          <p className="text-2xl font-semibold">{inlets.length}</p>
+        </div>
+        <div className="card">
+          <p className="text-xs uppercase tracking-wide text-slate-500">Outlets</p>
+          <p className="text-2xl font-semibold">{outlets.length}</p>
+        </div>
+        <div className="card">
+          <p className="text-xs uppercase tracking-wide text-slate-500">Connections</p>
+          <p className="text-2xl font-semibold">{connections.length}</p>
+        </div>
+      </div>
       <div className="card flex flex-wrap gap-2">
         <input
           className="input"
           value={filters.q}
           onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))}
-          placeholder="Filter Name/ID/Device"
+          placeholder="Suche Name, Device oder ID"
         />
         <select
           className="input"
@@ -315,43 +379,54 @@ export function PowerPage() {
       </div>
 
       <form className="card flex flex-wrap items-end gap-2" onSubmit={submitInlet}>
+        <p className="w-full text-sm font-semibold text-slate-700">1) Inlet anlegen</p>
         <div>
-          <label className="muted">Device fuer Inlet</label>
+          <label className="muted">Target Device</label>
           <select className="input ml-2" value={inletForm.device_id} onChange={(e) => setInletForm({ ...inletForm, device_id: Number(e.target.value) })}>
             {devices.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </div>
         <input className="input" value={inletForm.name} onChange={(e) => setInletForm({ ...inletForm, name: e.target.value })} placeholder="PSU-A" />
-        <button className="btn" type="submit">{editingInletId ? "Inlet speichern" : "Inlet anlegen"}</button>
+        <button className="btn" type="submit" disabled={!devices.length}>{editingInletId ? "Inlet speichern" : "Inlet anlegen"}</button>
         {editingInletId && <button type="button" className="btn-secondary" onClick={cancelEditInlet}>Abbrechen</button>}
       </form>
 
       <form className="card flex flex-wrap items-end gap-2" onSubmit={submitOutlet}>
+        <p className="w-full text-sm font-semibold text-slate-700">2) Outlet anlegen</p>
         <div>
-          <label className="muted">PDU Device</label>
+          <label className="muted">PDU/UPS Device</label>
           <select className="input ml-2" value={outletForm.pdu_device_id} onChange={(e) => setOutletForm({ ...outletForm, pdu_device_id: Number(e.target.value) })}>
             {devices.filter((d) => d.role === "pdu" || d.role === "ups").map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </div>
         <input className="input" value={outletForm.name} onChange={(e) => setOutletForm({ ...outletForm, name: e.target.value })} placeholder="Outlet-1" />
-        <button className="btn" type="submit">{editingOutletId ? "Outlet speichern" : "Outlet anlegen"}</button>
+        <button className="btn" type="submit" disabled={!devices.some((d) => d.role === "pdu" || d.role === "ups")}>{editingOutletId ? "Outlet speichern" : "Outlet anlegen"}</button>
         {editingOutletId && <button type="button" className="btn-secondary" onClick={cancelEditOutlet}>Abbrechen</button>}
       </form>
 
       <form className="card flex flex-wrap items-end gap-2" onSubmit={submitConnection}>
+        <p className="w-full text-sm font-semibold text-slate-700">3) Verbinden</p>
+        <label className="flex items-center gap-2 text-xs text-slate-600">
+          <input
+            type="checkbox"
+            checked={showOnlyUnconnected}
+            onChange={(e) => setShowOnlyUnconnected(e.target.checked)}
+          />
+          Nur unverbundene Endpunkte anzeigen
+        </label>
         <div>
           <label className="muted">Power Inlet</label>
           <select className="input ml-2" value={connectionForm.src_id} onChange={(e) => setConnectionForm({ ...connectionForm, src_id: Number(e.target.value) })}>
-            {inlets.map((i) => <option key={i.id} value={i.id}>{i.name} ({deviceById[i.device_id] || `device-${i.device_id}`})</option>)}
+            {connectableInlets.map((i) => <option key={i.id} value={i.id}>{i.name} ({deviceById[i.device_id] || `device-${i.device_id}`})</option>)}
           </select>
         </div>
         <div>
           <label className="muted">PDU Outlet</label>
           <select className="input ml-2" value={connectionForm.dst_id} onChange={(e) => setConnectionForm({ ...connectionForm, dst_id: Number(e.target.value) })}>
-            {outlets.map((o) => <option key={o.id} value={o.id}>{o.name} ({deviceById[o.pdu_device_id] || `pdu-${o.pdu_device_id}`})</option>)}
+            {connectableOutlets.map((o) => <option key={o.id} value={o.id}>{o.name} ({deviceById[o.pdu_device_id] || `pdu-${o.pdu_device_id}`})</option>)}
           </select>
         </div>
-        <button className="btn" type="submit">{editingConnectionId ? "Verbindung speichern" : "Verbinden"}</button>
+        <button className="btn" type="submit" disabled={!connectableInlets.length || !connectableOutlets.length}>{editingConnectionId ? "Verbindung speichern" : "Verbinden"}</button>
         {editingConnectionId && (
           <button type="button" className="btn-secondary" onClick={cancelEditConnection}>Abbrechen</button>
         )}
@@ -436,7 +511,7 @@ export function PowerPage() {
         <select className="input" value={rackId} onChange={(e) => setRackId(Number(e.target.value))}>
           {racks.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
         </select>
-        <button type="button" className="btn" onClick={() => void loadMap()}>Rack Power Map laden</button>
+        <button type="button" className="btn" onClick={() => void loadMap()}>Rack Power Map neu laden</button>
       </div>
       <div className="card whitespace-pre-wrap text-sm">{JSON.stringify(map, null, 2)}</div>
     </div>
