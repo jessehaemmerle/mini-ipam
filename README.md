@@ -1,189 +1,295 @@
 # mini-ipam
 
-IPAM-first Tool mit grundlegenden DCIM-Funktionen (Sites, Racks, Cabling inkl. Patchpanel-Pfade, Power Mapping), Single-Tenant, offline-fähig, lokal per Docker Compose startbar.
+IPAM-first Tool mit DCIM-Basisfunktionen fuer kleine bis mittlere Infrastruktur-Umgebungen.  
+Die App laeuft lokal (Docker Compose), ist Single-Tenant und fuer Offline-/Lab-Szenarien geeignet.
 
-## Features
+## Inhalt
+1. [Was die App kann](#was-die-app-kann)
+2. [Architektur](#architektur)
+3. [Schnellstart mit Docker](#schnellstart-mit-docker-empfohlen)
+4. [Erste Nutzung (Schritt fuer Schritt)](#erste-nutzung-schritt-fuer-schritt)
+5. [Rollen und Berechtigungen](#rollen-und-berechtigungen)
+6. [API Uebersicht](#api-uebersicht)
+7. [CSV Import/Export](#csv-importexport)
+8. [Lokale Entwicklung ohne Docker](#lokale-entwicklung-ohne-docker)
+9. [Qualitaet, Tests, Linting](#qualitaet-tests-linting)
+10. [Backup/Restore](#backuprestore-postgresql)
+11. [Konfiguration (.env)](#konfiguration-env)
+12. [Troubleshooting](#troubleshooting)
+13. [Produktionshinweise](#produktionshinweise)
 
-### IPAM (Kern)
-- VRFs (inkl. Seed `default`)
-- Prefixe (CIDR v4/v6, Utilization, Next Free IP, Split, Merge)
-- Prefix Detail View API (`/api/ipam/prefixes/{id}/detail`): Overview, IP-Liste, Utilization, History
-- Edit/Delete fuer VRF, Prefix, IP, VLAN (`PUT/DELETE` Endpoints)
-- IP-Adressen (Status, DNS, Assignment, VRF Duplicate Check, optional out-of-scope)
-- VLANs (VID 1-4094, Site Scope, Konfliktcheck)
-- Bulk Reserve IP Range
-- CSV Import/Export für Prefix/IP/VLAN
+## Was die App kann
+
+### IPAM
+- VRFs verwalten
+- Prefixes verwalten (IPv4/IPv6 CIDR)
+- Prefix-Funktionen: Utilization, Next Free IP, Split, Merge
+- IP-Adressen verwalten (Status, DNS, Zuweisung, Duplicate-Check pro VRF)
+- VLANs verwalten (VID 1-4094, Site-Scoped Konfliktpruefung)
+- Bulk-Reservierung von IP-Bereichen
+- CSV Import/Export fuer Prefixes, IPs und VLANs
 
 ### DCIM
-- Sites
-- Racks + Rack Placements + Front/Rear SVG Diagramm
-- Rack Detail View API (`/api/dcim/racks/{id}/detail`) inkl. Missing Power/Cable Indicators
-- Devices + Interfaces + Patch Ports
-- Device Detail View API (`/api/dcim/devices/{id}/detail`) mit Interfaces, IPs, Cabling, Power, History
-- Edit/Delete fuer Site, Rack, Device (`PUT/DELETE` Endpoints)
-- Cabling inkl. Single-Connection-Validation (mit `allow_multi` Override)
-- Cable Path Lookup (Graph Traversal + Tabellenpfad)
-- Cabling UI mit Endpoint-Dropdowns (Interfaces/Patchports), Cable-Liste und Path-Lookup
-- Power Entities: Inlets, PDU Outlets, Power Connections, Rack Power Map
-- Power UI mit Workflows fuer Inlet/Outlet-Erstellung und Inlet->Outlet-Verbindungen
+- Sites, Racks und Rack-Placement
+- Devices, Interfaces, Patch-Ports
+- Cabling inkl. Path-Lookup
+- Power-Objekte (Inlets, PDU-Outlets, Power-Connections)
+- Detailansichten fuer Device und Rack inklusive History
 
-### Produktive Must-Haves
-- Globale Suche über Prefix/IP/VLAN/Device/Rack/Cable
-- Audit Log + Objekt-History (`object_history`)
-- Tags, Kommentare, Attachments
-- Reports: IP Utilization, Konflikte, Unassigned Interfaces, Cable Orphans, Power Orphans
-- Health Endpoints: `/api/system/healthz`, `/api/system/readyz`
-- OpenAPI/Swagger unter `/docs`
+### Betrieb/Usability
+- Globale Suche ueber mehrere Objekttypen
+- Reports:
+  - IP Utilization
+  - Konflikte
+  - Unassigned Interfaces
+  - Cable Orphans
+  - Power Orphans
+- Reports unterstuetzen Pagination via `limit` und `offset`
+- Health-Checks: `/api/system/healthz`, `/api/system/readyz`
+- OpenAPI/Swagger: `/docs`
 
 ## Architektur
-- Backend: FastAPI + SQLAlchemy + Alembic
-- Datenbank: PostgreSQL (Default), SQLite optional per `SQLITE_DEV_MODE=true` und `DATABASE_URL=sqlite:///...`
-- Frontend: React + Vite + TypeScript + Tailwind
-- Deployment: Docker Compose (`api`, `web`, `db`)
 
-## Schnellstart
+- Backend: FastAPI, SQLAlchemy, Alembic
+- Datenbank: PostgreSQL (Standard), SQLite fuer Dev moeglich
+- Frontend: React, Vite, TypeScript, Tailwind
+- Deployment lokal: Docker Compose mit `api`, `web`, `db`
 
-```bash
-cp .env.example .env
-docker compose up -d --build
-```
+## Schnellstart mit Docker (empfohlen)
 
-- Web UI: http://localhost:8080
-- API: http://localhost:8000
-- Swagger: http://localhost:8000/docs
+### Voraussetzungen
+- Docker Desktop (inkl. Docker Compose)
 
-Default-Admin bei Erststart via ENV:
-- `ADMIN_USER`
-- `ADMIN_PASS`
+### Start
+1. `.env` anlegen:
+   - Linux/macOS:
+   ```bash
+   cp .env.example .env
+   ```
+   - Windows PowerShell:
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+2. Container starten:
+   ```bash
+   docker compose up -d --build
+   ```
+3. Admin initial bootstrappen (einmalig):
+   ```bash
+   curl -X POST http://localhost:8000/api/auth/bootstrap
+   ```
 
-Initialer Bootstrap (explizit, nach Container-Start):
+### Erreichbare URLs
+- Web UI: `http://localhost:8080`
+- API: `http://localhost:8000`
+- API Docs: `http://localhost:8000/docs`
 
-```bash
-curl -X POST http://localhost:8000/api/auth/bootstrap
-```
+## Erste Nutzung (Schritt fuer Schritt)
 
-Optional Demo-Daten seeden (nach Login als Admin):
+1. App starten (siehe Schnellstart).
+2. Unter `Admin` einloggen (Default aus `.env`: `ADMIN_USER`/`ADMIN_PASS`).
+3. Optional Demo-Daten laden:
+   ```bash
+   curl -X POST --cookie "session_token=..." http://localhost:8000/api/auth/bootstrap-demo
+   ```
+4. Empfohlene Reihenfolge im UI:
+   - `VRFs` anlegen/pruefen
+   - `Prefixes` anlegen
+   - `IPs` reservieren/zuweisen
+   - `Sites`, `Racks`, `Devices` pflegen
+   - `Cabling` und `Power` mappen
+   - `Reports` pruefen
 
-```bash
-curl -X POST --cookie "session_token=..." http://localhost:8000/api/auth/bootstrap-demo
-```
+## Rollen und Berechtigungen
 
-## ENV Konfiguration
+- `admin`: volle Rechte inkl. Bootstrap-Demo, Schreiben/Loeschen
+- `editor`: Schreiben/Loeschen in Fachbereichen
+- `readonly`: nur lesend
 
-Wichtige Variablen:
-- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
-- `DATABASE_URL` (im Compose bereits gesetzt)
-- `SECRET_KEY`
-- `ADMIN_USER`, `ADMIN_PASS`
-- `CORS_ORIGINS`
-- `COOKIE_SECURE`
-- `SQLITE_DEV_MODE`
+Berechtigung wird serverseitig geprueft (RBAC).
 
-## Multi-Arch Build
+## API Uebersicht
 
-Compose nutzt arch-neutrale Base Images.
+Vollstaendige API: `GET /docs`
 
-Optional explizit multi-arch bauen:
+### Auth
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+- `POST /api/auth/bootstrap` (einmalige Initialisierung)
+- `POST /api/auth/bootstrap-demo` (admin-only, optionale Demo-Daten)
 
-```bash
-docker buildx build --platform linux/amd64,linux/arm64 -f backend/Dockerfile -t mini-ipam-api:latest .
-docker buildx build --platform linux/amd64,linux/arm64 -f frontend/Dockerfile -t mini-ipam-web:latest .
-```
+### IPAM
+- `GET/POST /api/ipam/vrfs`
+- `PUT/DELETE /api/ipam/vrfs/{vrf_id}`
+- `GET/POST /api/ipam/prefixes`
+- `PUT/DELETE /api/ipam/prefixes/{prefix_id}`
+- `GET /api/ipam/prefixes/{prefix_id}/detail`
+- `GET /api/ipam/prefixes/{prefix_id}/utilization`
+- `GET /api/ipam/prefixes/{prefix_id}/next-free-ip`
+- `POST /api/ipam/prefixes/{prefix_id}/split`
+- `POST /api/ipam/prefixes/merge`
+- `GET/POST /api/ipam/ips`
+- `PUT/DELETE /api/ipam/ips/{ip_id}`
+- `POST /api/ipam/ips/bulk-reserve`
+- `GET/POST /api/ipam/vlans`
+- `PUT/DELETE /api/ipam/vlans/{vlan_id}`
+- `GET /api/ipam/export/{object_type}`
+- `POST /api/ipam/import/{object_type}`
+- `GET /api/ipam/history/{object_type}/{object_id}`
+- `GET /api/ipam/stats`
+
+### DCIM
+- `GET/POST /api/dcim/sites`
+- `PUT/DELETE /api/dcim/sites/{site_id}`
+- `GET/POST /api/dcim/racks`
+- `PUT/DELETE /api/dcim/racks/{rack_id}`
+- `GET/POST /api/dcim/devices`
+- `GET /api/dcim/devices/{device_id}/detail`
+- `PUT/DELETE /api/dcim/devices/{device_id}`
+- `GET/POST /api/dcim/interfaces`
+- `GET /api/dcim/endpoint-options`
+- `GET/POST /api/dcim/patch-ports`
+- `PUT/DELETE /api/dcim/patch-ports/{patch_port_id}`
+- weitere Cabling/Power-Endpunkte siehe Swagger
+
+### Reports
+- `GET /api/reports/ip-utilization?limit=100&offset=0`
+- `GET /api/reports/conflicts`
+- `GET /api/reports/unassigned-interfaces?limit=100&offset=0`
+- `GET /api/reports/cable-orphans?limit=100&offset=0`
+- `GET /api/reports/power-orphans?limit=100&offset=0`
+
+### System
+- `GET /api/system/healthz`
+- `GET /api/system/readyz`
+- `GET/POST /api/system/tags`
+- `POST /api/system/tag-links`
+- `GET/POST /api/system/comments`
+- `GET/POST /api/system/attachments`
 
 ## CSV Import/Export
 
-Templates:
+Beispiel-Dateien:
 - `samples/prefixes.csv`
 - `samples/ipaddresses.csv`
 - `samples/vlans.csv`
 
-Import Beispiel:
-
+Import:
 ```bash
-curl -X POST \
-  -F "file=@samples/prefixes.csv" \
-  http://localhost:8000/api/ipam/import/prefixes
+curl -X POST -F "file=@samples/prefixes.csv" http://localhost:8000/api/ipam/import/prefixes
 ```
 
-Export Beispiel:
-
+Export:
 ```bash
 curl -L http://localhost:8000/api/ipam/export/prefixes -o prefixes_export.csv
 ```
 
-## API Beispiel-Requests
-
-Login:
-
-```bash
-curl -i -X POST http://localhost:8000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin"}'
-```
-
-Alternativ CLI-Bootstrap (lokale Entwicklung):
-
-```bash
-cd backend
-python -m app.scripts.bootstrap --seed-demo
-```
-
-Prefix anlegen:
-
-```bash
-curl -X POST http://localhost:8000/api/ipam/prefixes \
-  -H "Content-Type: application/json" \
-  -d '{"cidr":"10.40.0.0/24","vrf_id":1,"role":"LAN","status":"active"}'
-```
-
-Cable Path Lookup:
-
-```bash
-curl "http://localhost:8000/api/dcim/cable-path?endpoint_type=interface&endpoint_id=1"
-```
-
-## Backup / Restore (PostgreSQL)
-
-Backup:
-
-```bash
-docker compose exec db pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > backup.sql
-```
-
-Restore:
-
-```bash
-cat backup.sql | docker compose exec -T db psql -U "$POSTGRES_USER" "$POSTGRES_DB"
-```
-
-## Entwicklung lokal ohne Docker
+## Lokale Entwicklung ohne Docker
 
 ### Backend
-
 ```bash
 cd backend
 python -m venv .venv
-. .venv/bin/activate  # Windows: .venv\Scripts\activate
+# Linux/macOS
+source .venv/bin/activate
+# Windows PowerShell
+# .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-### Frontend
+Alternativ Bootstrap per CLI:
+```bash
+python -m app.scripts.bootstrap --seed-demo
+```
 
+### Frontend
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-## Qualität
-- Python Lint/Format: `ruff`, `black`
-- Frontend Lint/Format: `eslint`, `prettier`
-- Unit-Tests für IPAM-Logik in `backend/tests`
+## Qualitaet, Tests, Linting
 
-## Hinweise
-- Single-Tenant Design, lokale Auth mit HTTP-only Session Cookie.
-- RBAC serverseitig für `admin/editor/readonly`.
-- Für produktiven Internet-Betrieb `COOKIE_SECURE=true` und starkes `SECRET_KEY` setzen.
+### Backend
+```bash
+cd backend
+pytest -q
+ruff check .
+black --check .
+```
+
+### Frontend
+```bash
+cd frontend
+npm run lint
+npm run build
+```
+
+## Backup/Restore (PostgreSQL)
+
+Backup:
+```bash
+docker compose exec db pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > backup.sql
+```
+
+Restore:
+```bash
+cat backup.sql | docker compose exec -T db psql -U "$POSTGRES_USER" "$POSTGRES_DB"
+```
+
+## Konfiguration (.env)
+
+Wichtige Variablen:
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
+- `DATABASE_URL`
+- `SECRET_KEY`
+- `ADMIN_USER`, `ADMIN_PASS`
+- `CORS_ORIGINS`
+- `COOKIE_SECURE`
+- `SQLITE_DEV_MODE`
+- `UPLOAD_DIR`
+
+Hinweis: In Docker Compose ist `DATABASE_URL` standardmaessig auf PostgreSQL gesetzt.
+
+## Troubleshooting
+
+### "Not authenticated" im Frontend
+- Login ueber `Admin` pruefen
+- Browser-Cookies nicht blockieren
+- API-Basis (`VITE_API_BASE`) kontrollieren
+
+### Alembic/Migrationsproblem
+- Sicherstellen, dass Backend-Dependencies installiert sind:
+  ```bash
+  pip install -r backend/requirements.txt
+  ```
+- Dann erneut:
+  ```bash
+  cd backend
+  alembic upgrade head
+  ```
+
+### Port bereits belegt
+- Standardports sind `8080` (Web) und `8000` (API)
+- Bei Konflikt Ports in `docker-compose.yml` anpassen
+
+### Leere Reports
+- Entweder noch keine Daten vorhanden
+- Oder per `bootstrap-demo` Demo-Daten erzeugen
+
+## Produktionshinweise
+
+- `SECRET_KEY` stark und einzigartig setzen
+- `COOKIE_SECURE=true` bei HTTPS
+- `ADMIN_PASS` sofort aendern
+- Regelmaessige DB-Backups einrichten
+- Reverse Proxy/TLS vor API schalten
+
+## Lizenz
+
+Derzeit keine separate Lizenzdatei im Repository hinterlegt.
 
