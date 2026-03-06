@@ -2,11 +2,12 @@ import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
 
 import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
-import { Device, IPAddress } from "../types";
+import { Device, IPAddress, Vrf } from "../types";
 
 export function IPsPage() {
   const [items, setItems] = useState<IPAddress[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
+  const [vrfs, setVrfs] = useState<Vrf[]>([]);
   const [assignTargets, setAssignTargets] = useState<Record<number, number | "">>({});
   const [filters, setFilters] = useState({ q: "", status: "", assigned: "" as "" | "assigned" | "unassigned" });
   const [form, setForm] = useState({
@@ -26,12 +27,18 @@ export function IPsPage() {
   const [assignSavingId, setAssignSavingId] = useState<number | null>(null);
 
   const load = async () => {
-    const [ipData, deviceData] = await Promise.all([
+    const [ipData, deviceData, vrfData] = await Promise.all([
       get<IPAddress[]>("/ipam/ips"),
       get<Device[]>("/dcim/devices"),
+      get<Vrf[]>("/ipam/vrfs"),
     ]);
     setItems(ipData);
     setDevices(deviceData);
+    setVrfs(vrfData);
+    setForm((prev) => {
+      if (vrfData.some((item) => item.id === prev.vrf_id)) return prev;
+      return { ...prev, vrf_id: vrfData[0]?.id ?? prev.vrf_id };
+    });
     setAssignTargets(
       Object.fromEntries(
         ipData.map((item) => [
@@ -63,6 +70,11 @@ export function IPsPage() {
     e.preventDefault();
     if (!form.address.trim()) {
       setError("Bitte eine IP-Adresse eingeben.");
+      setMessage("");
+      return;
+    }
+    if (!vrfs.length) {
+      setError("Keine VRF vorhanden. Bitte zuerst eine VRF anlegen.");
       setMessage("");
       return;
     }
@@ -207,14 +219,19 @@ export function IPsPage() {
         </div>
         <div className="field">
           <label className="field-label" htmlFor="ip-vrf">VRF</label>
-          <input
+          <select
             id="ip-vrf"
             className="input"
-            type="number"
-            min={1}
             value={form.vrf_id}
-            onChange={(e) => setForm({ ...form, vrf_id: Number(e.target.value) || 1 })}
-          />
+            onChange={(e) => setForm({ ...form, vrf_id: Number(e.target.value) })}
+            disabled={!vrfs.length}
+          >
+            {vrfs.map((vrf) => (
+              <option key={vrf.id} value={vrf.id}>
+                {vrf.name}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="field md:col-span-2">
           <label className="field-label" htmlFor="ip-assign-type">Zuweisung</label>
@@ -253,7 +270,7 @@ export function IPsPage() {
           </div>
         )}
         <div className="flex items-end">
-          <button className="btn w-full md:w-auto" type="submit" disabled={saving}>{saving ? "Speichert..." : "IP speichern"}</button>
+          <button className="btn w-full md:w-auto" type="submit" disabled={saving || !vrfs.length}>{saving ? "Speichert..." : "IP speichern"}</button>
         </div>
       </form>
       <form onSubmit={submitBulkReserve} className="card grid gap-3 md:grid-cols-4">
