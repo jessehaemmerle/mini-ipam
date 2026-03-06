@@ -401,13 +401,13 @@ export function CablingPage() {
         </div>
         <input className="input" value={form.cable_type} onChange={(e) => setForm({ ...form, cable_type: e.target.value })} placeholder="cat6/fiber/dac" />
         <input className="input" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="Label" />
-        <button className="btn" type="submit">Create Cable</button>
+        <button className="btn" type="submit">Kabel anlegen</button>
       </form>
 
       {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
       {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
 
-      <div className="card flex gap-2">
+      <div className="card flex flex-wrap gap-2">
         <select className="input" value={lookupKey} onChange={(e) => setLookupKey(e.target.value)}>
           {endpointOptions.map((opt) => (
             <option key={`lookup-${opt.type}-${opt.id}`} value={`${opt.type}:${opt.id}`}>
@@ -417,7 +417,7 @@ export function CablingPage() {
             </option>
           ))}
         </select>
-        <button type="button" className="btn" onClick={() => void runLookup()}>Show Path</button>
+        <button type="button" className="btn" onClick={() => void runLookup()}>Pfad anzeigen</button>
       </div>
 
       <div className="card overflow-x-auto">
@@ -434,6 +434,9 @@ export function CablingPage() {
               <option key={type} value={type}>{type}</option>
             ))}
           </select>
+          <button type="button" className="btn-secondary" onClick={() => setListFilter({ q: "", cable_type: "" })}>
+            Zuruecksetzen
+          </button>
         </div>
         <table className="w-full text-sm">
           <thead>
@@ -448,7 +451,7 @@ export function CablingPage() {
                 <td className="p-2">{c.cable_type}</td>
                 <td className="p-2">{c.label || "-"}</td>
                 <td className="p-2">
-                  <button type="button" className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={() => void deleteCable(c.id)}>Delete</button>
+                  <button type="button" className="btn-danger px-2 py-1 text-xs" onClick={() => void deleteCable(c.id)}>Loeschen</button>
                 </td>
               </tr>
             ))}
@@ -499,7 +502,7 @@ export function CablingPage() {
             <input type="checkbox" checked={patchPortForm.allow_multi} onChange={(e) => setPatchPortForm({ ...patchPortForm, allow_multi: e.target.checked })} />
             allow_multi
           </label>
-          <button className="btn" type="submit">{editingPatchPortId ? "Update Port" : "Create Port"}</button>
+          <button className="btn" type="submit">{editingPatchPortId ? "Port speichern" : "Port anlegen"}</button>
         </form>
         <div className="flex flex-wrap gap-2">
           <input className="input" value={patchFilter.q} onChange={(e) => setPatchFilter((prev) => ({ ...prev, q: e.target.value }))} placeholder="Filter Port/Panel" />
@@ -509,6 +512,9 @@ export function CablingPage() {
               <option key={`filter-panel-${panel.id}`} value={panel.id}>{panel.name}</option>
             ))}
           </select>
+          <button type="button" className="btn-secondary" onClick={() => setPatchFilter({ q: "", panel_id: "" })}>
+            Zuruecksetzen
+          </button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -533,8 +539,8 @@ export function CablingPage() {
                   <td className="p-2">{port.back_port_name}</td>
                   <td className="p-2">{port.allow_multi ? "yes" : "no"}</td>
                   <td className="p-2">
-                    <button type="button" className="mr-2 rounded border px-2 py-1 text-xs" onClick={() => startEditPatchPort(port)}>Edit</button>
-                    <button type="button" className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={() => void deletePatchPort(port.id)}>Delete</button>
+                    <button type="button" className="btn-secondary mr-2 px-2 py-1 text-xs" onClick={() => startEditPatchPort(port)}>Bearbeiten</button>
+                    <button type="button" className="btn-danger px-2 py-1 text-xs" onClick={() => void deletePatchPort(port.id)}>Loeschen</button>
                   </td>
                 </tr>
               ))}

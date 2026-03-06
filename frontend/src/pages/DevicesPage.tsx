@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
 
 import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -21,6 +21,9 @@ export function DevicesPage() {
   });
   const [rackTargets, setRackTargets] = useState<Record<number, number | "">>({});
   const [siteTargets, setSiteTargets] = useState<Record<number, number | "">>({});
+  const [savingAssignmentId, setSavingAssignmentId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", role: "" });
   const [newInterfaceName, setNewInterfaceName] = useState("eth0");
   const [newInletName, setNewInletName] = useState("PSU-A");
   const [filters, setFilters] = useState({ q: "", role: "", status: "", site_id: "" as number | "" });
@@ -83,9 +86,14 @@ export function DevicesPage() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!form.name.trim()) {
+      setError("Bitte Device-Namen eingeben.");
+      setMessage("");
+      return;
+    }
     try {
       await post("/dcim/devices", {
-        name: form.name,
+        name: form.name.trim(),
         role: form.role,
         status: "active",
         site_id: form.site_id === "" ? null : form.site_id,
@@ -112,26 +120,35 @@ export function DevicesPage() {
     }
   };
 
-  const editDevice = async (item: Device) => {
-    const name = window.prompt("Device Name", item.name);
-    if (!name) return;
-    const role = window.prompt("Role", item.role);
-    if (!role) return;
+  const startEditDevice = (item: Device) => {
+    setEditingId(item.id);
+    setEditForm({ name: item.name, role: item.role });
+    setMessage("");
+    setError("");
+  };
+
+  const saveEditDevice = async (item: Device) => {
+    if (!editForm.name.trim() || !editForm.role.trim()) {
+      setError("Name und Rolle sind erforderlich.");
+      setMessage("");
+      return;
+    }
     try {
-      await updateDevice(item, { name, role });
+      await updateDevice(item, { name: editForm.name.trim(), role: editForm.role.trim() });
       await load();
       if (selectedId === item.id) void loadDetail(item.id);
       setMessage("Device aktualisiert.");
       setError("");
+      setEditingId(null);
     } catch (err: unknown) {
       setError(extractApiError(err));
       setMessage("");
     }
   };
 
-  const assignRack = async (item: Device) => {
-    const target = rackTargets[item.id];
+  const assignRack = async (item: Device, target: number | "") => {
     try {
+      setSavingAssignmentId(item.id);
       await updateDevice(item, { rack_id: target === "" ? null : target });
       await load();
       if (selectedId === item.id) void loadDetail(item.id);
@@ -140,12 +157,14 @@ export function DevicesPage() {
     } catch (err: unknown) {
       setError(extractApiError(err));
       setMessage("");
+    } finally {
+      setSavingAssignmentId(null);
     }
   };
 
-  const assignSite = async (item: Device) => {
-    const target = siteTargets[item.id];
+  const assignSite = async (item: Device, target: number | "") => {
     try {
+      setSavingAssignmentId(item.id);
       await updateDevice(item, { site_id: target === "" ? null : target });
       await load();
       if (selectedId === item.id) void loadDetail(item.id);
@@ -154,6 +173,8 @@ export function DevicesPage() {
     } catch (err: unknown) {
       setError(extractApiError(err));
       setMessage("");
+    } finally {
+      setSavingAssignmentId(null);
     }
   };
 
@@ -210,7 +231,7 @@ export function DevicesPage() {
   return (
     <div className="space-y-4">
       <PageHeader title="Devices" subtitle="Inventar, Rollen, Serials, Asset-Tags" />
-      <form className="card flex gap-2" onSubmit={submit}>
+      <form className="card flex flex-wrap gap-2" onSubmit={submit}>
         <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Device name" />
         <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
           <option value="server">server</option>
@@ -276,7 +297,7 @@ export function DevicesPage() {
           <option value="front">front</option>
           <option value="rear">rear</option>
         </select>
-        <button className="btn" type="submit">Add</button>
+        <button className="btn" type="submit">Device anlegen</button>
       </form>
       {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
       {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
@@ -309,6 +330,9 @@ export function DevicesPage() {
             <option key={site.id} value={site.id}>{site.name}</option>
           ))}
         </select>
+        <button type="button" className="btn-secondary" onClick={() => setFilters({ q: "", role: "", status: "", site_id: "" })}>
+          Filter zuruecksetzen
+        </button>
       </div>
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
@@ -324,58 +348,104 @@ export function DevicesPage() {
           </thead>
           <tbody>
             {filteredItems.map((d) => (
-              <tr
-                key={d.id}
-                className={`border-b cursor-pointer ${selectedId === d.id ? "bg-amber-50" : ""}`}
-                onClick={() => loadDetail(d.id)}
-              >
-                <td className="p-2">{d.name}</td>
-                <td className="p-2">{d.role}</td>
-                <td className="p-2">{d.status}</td>
-                <td className="p-2">
-                  <div className="flex items-center gap-1">
-                    <select
-                      className="input h-8 py-1 text-xs"
-                      value={siteTargets[d.id] ?? ""}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => {
-                        const value = e.target.value ? Number(e.target.value) : "";
-                        setSiteTargets((prev) => ({ ...prev, [d.id]: value }));
+              <Fragment key={d.id}>
+                <tr
+                  className={`border-b cursor-pointer ${selectedId === d.id ? "bg-amber-50" : ""}`}
+                  onClick={() => loadDetail(d.id)}
+                >
+                  <td className="p-2">{d.name}</td>
+                  <td className="p-2">{d.role}</td>
+                  <td className="p-2">{d.status}</td>
+                  <td className="p-2">
+                    <div className="flex items-center gap-1">
+                      <select
+                        className="input h-8 py-1 text-xs"
+                        value={siteTargets[d.id] ?? ""}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          const value = e.target.value ? Number(e.target.value) : "";
+                          setSiteTargets((prev) => ({ ...prev, [d.id]: value }));
+                          void assignSite(d, value);
+                        }}
+                        disabled={savingAssignmentId === d.id}
+                      >
+                        <option value="">keine Site</option>
+                        {sites.map((site) => (
+                          <option key={site.id} value={site.id}>{site.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </td>
+                  <td className="p-2">
+                    <div className="flex items-center gap-1">
+                      <select
+                        className="input h-8 py-1 text-xs"
+                        value={rackTargets[d.id] ?? ""}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          const value = e.target.value ? Number(e.target.value) : "";
+                          setRackTargets((prev) => ({ ...prev, [d.id]: value }));
+                          void assignRack(d, value);
+                        }}
+                        disabled={savingAssignmentId === d.id}
+                      >
+                        <option value="">kein Rack</option>
+                        {racks.map((rack) => (
+                          <option key={rack.id} value={rack.id}>{rack.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </td>
+                  <td className="p-2">
+                    <button
+                      type="button"
+                      className="btn-secondary mr-2 px-2 py-1 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (editingId === d.id) {
+                          setEditingId(null);
+                        } else {
+                          startEditDevice(d);
+                        }
                       }}
                     >
-                      <option value="">keine Site</option>
-                      {sites.map((site) => (
-                        <option key={site.id} value={site.id}>{site.name}</option>
-                      ))}
-                    </select>
-                    <button type="button" className="rounded border px-2 py-1 text-xs" onClick={(e) => { e.stopPropagation(); void assignSite(d); }}>Assign</button>
-                  </div>
-                </td>
-                <td className="p-2">
-                  <div className="flex items-center gap-1">
-                    <select
-                      className="input h-8 py-1 text-xs"
-                      value={rackTargets[d.id] ?? ""}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => {
-                        const value = e.target.value ? Number(e.target.value) : "";
-                        setRackTargets((prev) => ({ ...prev, [d.id]: value }));
-                      }}
-                    >
-                      <option value="">kein Rack</option>
-                      {racks.map((rack) => (
-                        <option key={rack.id} value={rack.id}>{rack.name}</option>
-                      ))}
-                    </select>
-                    <button type="button" className="rounded border px-2 py-1 text-xs" onClick={(e) => { e.stopPropagation(); void assignRack(d); }}>Assign</button>
-                  </div>
-                </td>
-                <td className="p-2">
-                  <button type="button" className="mr-2 rounded border px-2 py-1 text-xs" onClick={(e) => { e.stopPropagation(); void editDevice(d); }}>Edit</button>
-                  <button type="button" className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={(e) => { e.stopPropagation(); void deleteDevice(d); }}>Delete</button>
+                      {editingId === d.id ? "Abbrechen" : "Bearbeiten"}
+                    </button>
+                    <button type="button" className="btn-danger px-2 py-1 text-xs" onClick={(e) => { e.stopPropagation(); void deleteDevice(d); }}>Loeschen</button>
+                  </td>
+                </tr>
+                {editingId === d.id && (
+                  <tr className="border-b bg-slate-50/80">
+                    <td className="p-2" colSpan={6}>
+                      <div className="grid gap-2 md:grid-cols-4">
+                        <input
+                          className="input md:col-span-2"
+                          value={editForm.name}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+                          placeholder="Device Name"
+                        />
+                        <input
+                          className="input"
+                          value={editForm.role}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value }))}
+                          placeholder="Role"
+                        />
+                        <button type="button" className="btn" onClick={() => void saveEditDevice(d)}>
+                          Speichern
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            ))}
+            {filteredItems.length === 0 && (
+              <tr>
+                <td className="p-3 text-sm text-slate-500" colSpan={6}>
+                  Keine Devices gefunden.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
@@ -395,9 +465,9 @@ export function DevicesPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <input className="input" value={newInterfaceName} onChange={(e) => setNewInterfaceName(e.target.value)} placeholder="Interface name" />
-            <button type="button" className="rounded border px-3 py-2 text-sm" onClick={() => void addInterfaceToSelected()}>Add Interface</button>
+            <button type="button" className="btn-secondary" onClick={() => void addInterfaceToSelected()}>Interface hinzufuegen</button>
             <input className="input" value={newInletName} onChange={(e) => setNewInletName(e.target.value)} placeholder="Power inlet name" />
-            <button type="button" className="rounded border px-3 py-2 text-sm" onClick={() => void addPowerInletToSelected()}>Add Power Inlet</button>
+            <button type="button" className="btn-secondary" onClick={() => void addPowerInletToSelected()}>Inlet hinzufuegen</button>
           </div>
         </div>
       )}

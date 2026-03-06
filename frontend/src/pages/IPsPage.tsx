@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
 
 import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -18,9 +18,12 @@ export function IPsPage() {
     assigned_id: "" as number | "",
   });
   const [bulkForm, setBulkForm] = useState({ start_ip: "", end_ip: "", description: "" });
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ address: "", dns_name: "", assigned_id: "" as number | "" });
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [assignSavingId, setAssignSavingId] = useState<number | null>(null);
 
   const load = async () => {
     const [ipData, deviceData] = await Promise.all([
@@ -58,15 +61,20 @@ export function IPsPage() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!form.address.trim()) {
+      setError("Bitte eine IP-Adresse eingeben.");
+      setMessage("");
+      return;
+    }
     setError("");
     setMessage("");
     setSaving(true);
     try {
       await post("/ipam/ips", {
-        address: form.address,
+        address: form.address.trim(),
         vrf_id: form.vrf_id,
         status: form.status,
-        dns_name: form.dns_name || null,
+        dns_name: form.dns_name.trim() || null,
         description: null,
         out_of_scope: false,
         assigned_type: form.assigned_type || null,
@@ -82,32 +90,38 @@ export function IPsPage() {
     }
   };
 
-  const editIp = async (item: IPAddress) => {
-    const addr = window.prompt("IP Adresse", item.address);
-    if (!addr) return;
-    const dns = window.prompt("DNS Name", item.dns_name || "");
-    const currentDevice =
-      item.assigned_type === "device" && item.assigned_id ? String(item.assigned_id) : "";
-    const deviceInput = window.prompt("Device ID fuer Zuordnung (leer = keine)", currentDevice);
-    if (deviceInput === null) return;
-    const deviceId = deviceInput.trim() ? Number(deviceInput.trim()) : null;
-    if (deviceInput.trim() && Number.isNaN(deviceId)) {
-      setError("Ungueltige Device ID.");
+  const startEdit = (item: IPAddress) => {
+    setEditingId(item.id);
+    setEditForm({
+      address: item.address,
+      dns_name: item.dns_name || "",
+      assigned_id: item.assigned_type === "device" && item.assigned_id ? item.assigned_id : "",
+    });
+    setMessage("");
+    setError("");
+  };
+
+  const saveEdit = async (item: IPAddress) => {
+    if (!editForm.address.trim()) {
+      setError("IP-Adresse ist erforderlich.");
+      setMessage("");
       return;
     }
     try {
       await put(`/ipam/ips/${item.id}`, {
-        address: addr,
+        address: editForm.address.trim(),
         vrf_id: item.vrf_id,
         status: item.status,
-        dns_name: dns || null,
+        dns_name: editForm.dns_name.trim() || null,
         description: item.description || null,
         out_of_scope: item.out_of_scope || false,
-        assigned_type: deviceId ? "device" : null,
-        assigned_id: deviceId,
+        assigned_type: editForm.assigned_id === "" ? null : "device",
+        assigned_id: editForm.assigned_id === "" ? null : editForm.assigned_id,
       });
       await load();
       setMessage("IP aktualisiert.");
+      setError("");
+      setEditingId(null);
     } catch (err: unknown) {
       setError(extractApiError(err));
     }
@@ -124,9 +138,9 @@ export function IPsPage() {
     }
   };
 
-  const assignDevice = async (item: IPAddress) => {
-    const target = assignTargets[item.id];
+  const assignDevice = async (item: IPAddress, target: number | "") => {
     try {
+      setAssignSavingId(item.id);
       await put(`/ipam/ips/${item.id}`, {
         address: item.address,
         vrf_id: item.vrf_id,
@@ -143,6 +157,8 @@ export function IPsPage() {
     } catch (err: unknown) {
       setError(extractApiError(err));
       setMessage("");
+    } finally {
+      setAssignSavingId(null);
     }
   };
 
@@ -172,44 +188,90 @@ export function IPsPage() {
         subtitle="Assignments, Reservierungen und DNS-Name"
         meta={`${filteredItems.length} von ${items.length} IPs`}
       />
-      <form onSubmit={submit} className="card flex flex-wrap items-end gap-2">
-        <input className="input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="10.10.0.12" />
-        <input className="input" value={form.dns_name} onChange={(e) => setForm({ ...form, dns_name: e.target.value })} placeholder="dns name" />
-        <select
-          className="input"
-          value={form.assigned_type}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              assigned_type: e.target.value as "" | "device",
-              assigned_id: "",
-            })
-          }
-        >
-          <option value="">keine Zuordnung</option>
-          <option value="device">Geraet</option>
-        </select>
-        {form.assigned_type === "device" && (
-          <select
-            className="input"
-            value={form.assigned_id}
-            onChange={(e) => setForm({ ...form, assigned_id: e.target.value ? Number(e.target.value) : "" })}
-          >
-            <option value="">Geraet waehlen</option>
-            {devices.map((device) => (
-              <option key={device.id} value={device.id}>
-                {device.name}
-              </option>
-            ))}
+      <form onSubmit={submit} className="card grid gap-3 md:grid-cols-6">
+        <div className="field md:col-span-2">
+          <label className="field-label" htmlFor="ip-address">IP-Adresse</label>
+          <input id="ip-address" className="input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="10.10.0.12" />
+        </div>
+        <div className="field md:col-span-2">
+          <label className="field-label" htmlFor="ip-dns">DNS Name</label>
+          <input id="ip-dns" className="input" value={form.dns_name} onChange={(e) => setForm({ ...form, dns_name: e.target.value })} placeholder="server01.example.local" />
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="ip-status">Status</label>
+          <select id="ip-status" className="input" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+            <option value="reserved">reserved</option>
+            <option value="assigned">assigned</option>
+            <option value="free">free</option>
           </select>
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="ip-vrf">VRF</label>
+          <input
+            id="ip-vrf"
+            className="input"
+            type="number"
+            min={1}
+            value={form.vrf_id}
+            onChange={(e) => setForm({ ...form, vrf_id: Number(e.target.value) || 1 })}
+          />
+        </div>
+        <div className="field md:col-span-2">
+          <label className="field-label" htmlFor="ip-assign-type">Zuweisung</label>
+          <select
+            id="ip-assign-type"
+            className="input"
+            value={form.assigned_type}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                assigned_type: e.target.value as "" | "device",
+                assigned_id: "",
+              })
+            }
+          >
+            <option value="">keine Zuordnung</option>
+            <option value="device">Geraet</option>
+          </select>
+        </div>
+        {form.assigned_type === "device" && (
+          <div className="field md:col-span-2">
+            <label className="field-label" htmlFor="ip-assign-device">Geraet</label>
+            <select
+              id="ip-assign-device"
+              className="input"
+              value={form.assigned_id}
+              onChange={(e) => setForm({ ...form, assigned_id: e.target.value ? Number(e.target.value) : "" })}
+            >
+              <option value="">Geraet waehlen</option>
+              {devices.map((device) => (
+                <option key={device.id} value={device.id}>
+                  {device.name}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
-        <button className="btn" type="submit" disabled={saving}>{saving ? "Speichert..." : "Quick Reserve"}</button>
+        <div className="flex items-end">
+          <button className="btn w-full md:w-auto" type="submit" disabled={saving}>{saving ? "Speichert..." : "IP speichern"}</button>
+        </div>
       </form>
-      <form onSubmit={submitBulkReserve} className="card flex flex-wrap items-end gap-2">
-        <input className="input" value={bulkForm.start_ip} onChange={(e) => setBulkForm({ ...bulkForm, start_ip: e.target.value })} placeholder="Start IP (z.B. 10.10.0.100)" />
-        <input className="input" value={bulkForm.end_ip} onChange={(e) => setBulkForm({ ...bulkForm, end_ip: e.target.value })} placeholder="End IP (z.B. 10.10.0.120)" />
-        <input className="input" value={bulkForm.description} onChange={(e) => setBulkForm({ ...bulkForm, description: e.target.value })} placeholder="Beschreibung (optional)" />
-        <button className="btn" type="submit">Bulk Reserve</button>
+      <form onSubmit={submitBulkReserve} className="card grid gap-3 md:grid-cols-4">
+        <div className="field">
+          <label className="field-label" htmlFor="bulk-start-ip">Start-IP</label>
+          <input id="bulk-start-ip" className="input" value={bulkForm.start_ip} onChange={(e) => setBulkForm({ ...bulkForm, start_ip: e.target.value })} placeholder="10.10.0.100" />
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="bulk-end-ip">End-IP</label>
+          <input id="bulk-end-ip" className="input" value={bulkForm.end_ip} onChange={(e) => setBulkForm({ ...bulkForm, end_ip: e.target.value })} placeholder="10.10.0.120" />
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="bulk-description">Beschreibung</label>
+          <input id="bulk-description" className="input" value={bulkForm.description} onChange={(e) => setBulkForm({ ...bulkForm, description: e.target.value })} placeholder="optional" />
+        </div>
+        <div className="flex items-end">
+          <button className="btn w-full md:w-auto" type="submit">Bereich reservieren</button>
+        </div>
       </form>
       {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
       {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
@@ -256,39 +318,81 @@ export function IPsPage() {
           </thead>
           <tbody>
             {filteredItems.map((item) => (
-              <tr key={item.id} className="border-b">
-                <td className="p-2 font-semibold">{item.address}</td>
-                <td className="p-2">{item.status}</td>
-                <td className="p-2">{item.dns_name || "-"}</td>
-                <td className="p-2">
-                  <div className="flex items-center gap-1">
-                    <select
-                      className="input h-8 py-1 text-xs"
-                      value={assignTargets[item.id] ?? ""}
-                      onChange={(e) =>
-                        setAssignTargets((prev) => ({
-                          ...prev,
-                          [item.id]: e.target.value ? Number(e.target.value) : "",
-                        }))
-                      }
-                    >
-                      <option value="">kein Geraet</option>
-                      {devices.map((device) => (
-                        <option key={device.id} value={device.id}>
-                          {device.name}
-                        </option>
-                      ))}
-                    </select>
-                    <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => void assignDevice(item)}>
-                      Assign
-                    </button>
-                  </div>
-                </td>
-                <td className="p-2">
-                  <button type="button" className="mr-2 rounded border px-2 py-1 text-xs" onClick={() => void editIp(item)}>Edit</button>
-                  <button type="button" className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={() => void deleteIp(item)}>Delete</button>
-                </td>
-              </tr>
+              <Fragment key={item.id}>
+                <tr className="border-b">
+                  <td className="p-2 font-semibold">{item.address}</td>
+                  <td className="p-2">{item.status}</td>
+                  <td className="p-2">{item.dns_name || "-"}</td>
+                  <td className="p-2">
+                    <div className="flex items-center gap-1">
+                      <select
+                        className="input h-8 py-1 text-xs"
+                        value={assignTargets[item.id] ?? ""}
+                        onChange={(e) =>
+                          {
+                            const nextTarget = e.target.value ? Number(e.target.value) : "";
+                            setAssignTargets((prev) => ({
+                              ...prev,
+                              [item.id]: nextTarget,
+                            }));
+                            void assignDevice(item, nextTarget);
+                          }
+                        }
+                        disabled={assignSavingId === item.id}
+                      >
+                        <option value="">kein Geraet</option>
+                        {devices.map((device) => (
+                          <option key={device.id} value={device.id}>
+                            {device.name}
+                          </option>
+                        ))}
+                      </select>
+                      {assignSavingId === item.id && <span className="text-xs text-slate-500">Speichert...</span>}
+                    </div>
+                  </td>
+                  <td className="p-2">
+                    {editingId === item.id ? (
+                      <button type="button" className="btn-secondary mr-2 px-2 py-1 text-xs" onClick={() => setEditingId(null)}>Abbrechen</button>
+                    ) : (
+                      <button type="button" className="btn-secondary mr-2 px-2 py-1 text-xs" onClick={() => startEdit(item)}>Bearbeiten</button>
+                    )}
+                    <button type="button" className="btn-danger px-2 py-1 text-xs" onClick={() => void deleteIp(item)}>Loeschen</button>
+                  </td>
+                </tr>
+                {editingId === item.id && (
+                  <tr className="border-b bg-slate-50/80">
+                    <td className="p-2" colSpan={5}>
+                      <div className="grid gap-2 md:grid-cols-4">
+                        <input
+                          className="input"
+                          value={editForm.address}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, address: e.target.value }))}
+                          placeholder="IP-Adresse"
+                        />
+                        <input
+                          className="input"
+                          value={editForm.dns_name}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, dns_name: e.target.value }))}
+                          placeholder="DNS Name"
+                        />
+                        <select
+                          className="input"
+                          value={editForm.assigned_id}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, assigned_id: e.target.value ? Number(e.target.value) : "" }))}
+                        >
+                          <option value="">kein Geraet</option>
+                          {devices.map((device) => (
+                            <option key={`edit-device-${device.id}`} value={device.id}>{device.name}</option>
+                          ))}
+                        </select>
+                        <button type="button" className="btn" onClick={() => void saveEdit(item)}>
+                          Speichern
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
             {filteredItems.length === 0 && (
               <tr>

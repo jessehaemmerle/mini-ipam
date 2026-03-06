@@ -309,6 +309,9 @@ export function PowerPage() {
           <option value="">alle Devices</option>
           {devices.map((d) => <option key={`power-filter-device-${d.id}`} value={d.id}>{d.name}</option>)}
         </select>
+        <button type="button" className="btn-secondary" onClick={() => setFilters({ q: "", device_id: "" })}>
+          Zuruecksetzen
+        </button>
       </div>
 
       <form className="card flex flex-wrap items-end gap-2" onSubmit={submitInlet}>
@@ -319,8 +322,8 @@ export function PowerPage() {
           </select>
         </div>
         <input className="input" value={inletForm.name} onChange={(e) => setInletForm({ ...inletForm, name: e.target.value })} placeholder="PSU-A" />
-        <button className="btn" type="submit">{editingInletId ? "Update Inlet" : "Create Inlet"}</button>
-        {editingInletId && <button type="button" className="rounded border px-3 py-2 text-sm" onClick={cancelEditInlet}>Cancel</button>}
+        <button className="btn" type="submit">{editingInletId ? "Inlet speichern" : "Inlet anlegen"}</button>
+        {editingInletId && <button type="button" className="btn-secondary" onClick={cancelEditInlet}>Abbrechen</button>}
       </form>
 
       <form className="card flex flex-wrap items-end gap-2" onSubmit={submitOutlet}>
@@ -331,8 +334,8 @@ export function PowerPage() {
           </select>
         </div>
         <input className="input" value={outletForm.name} onChange={(e) => setOutletForm({ ...outletForm, name: e.target.value })} placeholder="Outlet-1" />
-        <button className="btn" type="submit">{editingOutletId ? "Update Outlet" : "Create Outlet"}</button>
-        {editingOutletId && <button type="button" className="rounded border px-3 py-2 text-sm" onClick={cancelEditOutlet}>Cancel</button>}
+        <button className="btn" type="submit">{editingOutletId ? "Outlet speichern" : "Outlet anlegen"}</button>
+        {editingOutletId && <button type="button" className="btn-secondary" onClick={cancelEditOutlet}>Abbrechen</button>}
       </form>
 
       <form className="card flex flex-wrap items-end gap-2" onSubmit={submitConnection}>
@@ -348,9 +351,9 @@ export function PowerPage() {
             {outlets.map((o) => <option key={o.id} value={o.id}>{o.name} ({deviceById[o.pdu_device_id] || `pdu-${o.pdu_device_id}`})</option>)}
           </select>
         </div>
-        <button className="btn" type="submit">{editingConnectionId ? "Update Connection" : "Connect"}</button>
+        <button className="btn" type="submit">{editingConnectionId ? "Verbindung speichern" : "Verbinden"}</button>
         {editingConnectionId && (
-          <button type="button" className="rounded border px-3 py-2 text-sm" onClick={cancelEditConnection}>Cancel</button>
+          <button type="button" className="btn-secondary" onClick={cancelEditConnection}>Abbrechen</button>
         )}
       </form>
 
@@ -365,8 +368,8 @@ export function PowerPage() {
                 <td className="p-2">{i.name}</td>
                 <td className="p-2">{deviceById[i.device_id] || `device-${i.device_id}`}</td>
                 <td className="p-2">
-                  <button type="button" className="mr-2 rounded border px-2 py-1 text-xs" onClick={() => startEditInlet(i)}>Edit</button>
-                  <button type="button" className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={() => void deleteInlet(i.id)}>Delete</button>
+                  <button type="button" className="btn-secondary mr-2 px-2 py-1 text-xs" onClick={() => startEditInlet(i)}>Bearbeiten</button>
+                  <button type="button" className="btn-danger px-2 py-1 text-xs" onClick={() => void deleteInlet(i.id)}>Loeschen</button>
                 </td>
               </tr>
             ))}
@@ -385,8 +388,8 @@ export function PowerPage() {
                 <td className="p-2">{o.name}</td>
                 <td className="p-2">{deviceById[o.pdu_device_id] || `pdu-${o.pdu_device_id}`}</td>
                 <td className="p-2">
-                  <button type="button" className="mr-2 rounded border px-2 py-1 text-xs" onClick={() => startEditOutlet(o)}>Edit</button>
-                  <button type="button" className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={() => void deleteOutlet(o.id)}>Delete</button>
+                  <button type="button" className="btn-secondary mr-2 px-2 py-1 text-xs" onClick={() => startEditOutlet(o)}>Bearbeiten</button>
+                  <button type="button" className="btn-danger px-2 py-1 text-xs" onClick={() => void deleteOutlet(o.id)}>Loeschen</button>
                 </td>
               </tr>
             ))}
@@ -413,8 +416,8 @@ export function PowerPage() {
                     : `${c.dst_type}:${c.dst_id}`}
                 </td>
                 <td className="p-2">
-                  <button type="button" className="mr-2 rounded border px-2 py-1 text-xs" onClick={() => startEditConnection(c)}>Edit</button>
-                  <button type="button" className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={() => void deleteConnection(c.id)}>Delete</button>
+                  <button type="button" className="btn-secondary mr-2 px-2 py-1 text-xs" onClick={() => startEditConnection(c)}>Bearbeiten</button>
+                  <button type="button" className="btn-danger px-2 py-1 text-xs" onClick={() => void deleteConnection(c.id)}>Loeschen</button>
                 </td>
               </tr>
             ))}
@@ -429,11 +432,11 @@ export function PowerPage() {
         </div>
       )}
 
-      <div className="card flex gap-2">
+      <div className="card flex flex-wrap gap-2">
         <select className="input" value={rackId} onChange={(e) => setRackId(Number(e.target.value))}>
           {racks.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
         </select>
-        <button type="button" className="btn" onClick={() => void loadMap()}>Load Rack Power Map</button>
+        <button type="button" className="btn" onClick={() => void loadMap()}>Rack Power Map laden</button>
       </div>
       <div className="card whitespace-pre-wrap text-sm">{JSON.stringify(map, null, 2)}</div>
     </div>

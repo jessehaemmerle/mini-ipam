@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
 
 import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -11,6 +11,8 @@ export function SitesPage() {
   const [siteFilter, setSiteFilter] = useState("");
   const [rackFilter, setRackFilter] = useState({ q: "", site_id: "" as number | "" });
   const [form, setForm] = useState({ name: "", code: "" });
+  const [editingSiteId, setEditingSiteId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", code: "" });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -45,8 +47,13 @@ export function SitesPage() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!form.name.trim() || !form.code.trim()) {
+      setError("Name und Code sind erforderlich.");
+      setMessage("");
+      return;
+    }
     try {
-      await post("/dcim/sites", form);
+      await post("/dcim/sites", { name: form.name.trim(), code: form.code.trim() });
       setForm({ name: "", code: "" });
       await load();
       setMessage("Site gespeichert.");
@@ -57,16 +64,30 @@ export function SitesPage() {
     }
   };
 
-  const editSite = async (site: Site) => {
-    const name = window.prompt("Site Name", site.name);
-    if (!name) return;
-    const code = window.prompt("Site Code", site.code);
-    if (!code) return;
+  const startEditSite = (site: Site) => {
+    setEditingSiteId(site.id);
+    setEditForm({ name: site.name, code: site.code });
+    setMessage("");
+    setError("");
+  };
+
+  const saveEditSite = async (site: Site) => {
+    if (!editForm.name.trim() || !editForm.code.trim()) {
+      setError("Name und Code sind erforderlich.");
+      setMessage("");
+      return;
+    }
     try {
-      await put(`/dcim/sites/${site.id}`, { name, code, address: null, description: null });
+      await put(`/dcim/sites/${site.id}`, {
+        name: editForm.name.trim(),
+        code: editForm.code.trim(),
+        address: null,
+        description: null,
+      });
       await load();
       setMessage("Site aktualisiert.");
       setError("");
+      setEditingSiteId(null);
     } catch (err: unknown) {
       setError(extractApiError(err));
       setMessage("");
@@ -113,27 +134,69 @@ export function SitesPage() {
   return (
     <div className="space-y-4">
       <PageHeader title="Sites" subtitle="Standorte und Rack-Zuordnung" />
-      <form className="card flex gap-2" onSubmit={submit}>
-        <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Name" />
-        <input className="input" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="Code" />
-        <button className="btn" type="submit">Create</button>
+      <form className="card grid gap-3 md:grid-cols-4" onSubmit={submit}>
+        <div className="field md:col-span-2">
+          <label className="field-label" htmlFor="site-name">Name</label>
+          <input id="site-name" className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="z.B. Vienna DC" />
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="site-code">Code</label>
+          <input id="site-code" className="input" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="VIE1" />
+        </div>
+        <div className="flex items-end">
+          <button className="btn w-full md:w-auto" type="submit">Site anlegen</button>
+        </div>
       </form>
       {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
       {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
 
-      <div className="card">
-        <input className="input" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)} placeholder="Sites filtern (Name/Code)" />
+      <div className="card flex flex-wrap items-end gap-2">
+        <div className="field">
+          <label className="field-label" htmlFor="site-filter">Site Filter</label>
+          <input id="site-filter" className="input" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)} placeholder="Name/Code" />
+        </div>
+        <button type="button" className="btn-secondary" onClick={() => setSiteFilter("")}>
+          Zuruecksetzen
+        </button>
       </div>
       <div className="card grid gap-2">
         {filteredSites.map((site) => (
-          <div key={site.id} className="flex items-center justify-between rounded-md border border-slate-200 p-3">
-            <span>{site.name} ({site.code})</span>
-            <span>
-              <button type="button" className="mr-2 rounded border px-2 py-1 text-xs" onClick={() => void editSite(site)}>Edit</button>
-              <button type="button" className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={() => void deleteSite(site)}>Delete</button>
-            </span>
-          </div>
+          <Fragment key={site.id}>
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 p-3">
+              <span>{site.name} ({site.code})</span>
+              <span className="flex gap-2">
+                {editingSiteId === site.id ? (
+                  <button type="button" className="btn-secondary px-2 py-1 text-xs" onClick={() => setEditingSiteId(null)}>Abbrechen</button>
+                ) : (
+                  <button type="button" className="btn-secondary px-2 py-1 text-xs" onClick={() => startEditSite(site)}>Bearbeiten</button>
+                )}
+                <button type="button" className="btn-danger px-2 py-1 text-xs" onClick={() => void deleteSite(site)}>Loeschen</button>
+              </span>
+            </div>
+            {editingSiteId === site.id && (
+              <div className="grid gap-2 rounded-md border border-slate-200 bg-slate-50/80 p-3 md:grid-cols-4">
+                <input
+                  className="input md:col-span-2"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="Name"
+                />
+                <input
+                  className="input"
+                  value={editForm.code}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, code: e.target.value }))}
+                  placeholder="Code"
+                />
+                <button type="button" className="btn" onClick={() => void saveEditSite(site)}>
+                  Speichern
+                </button>
+              </div>
+            )}
+          </Fragment>
         ))}
+        {filteredSites.length === 0 && (
+          <div className="rounded-md border border-slate-200 p-3 text-sm text-slate-500">Keine Sites gefunden.</div>
+        )}
       </div>
 
       <div className="card">
@@ -155,6 +218,9 @@ export function SitesPage() {
               <option key={`rack-filter-site-${site.id}`} value={site.id}>{site.name}</option>
             ))}
           </select>
+          <button type="button" className="btn-secondary" onClick={() => setRackFilter({ q: "", site_id: "" })}>
+            Zuruecksetzen
+          </button>
         </div>
         <div className="space-y-2">
           {filteredRacks.map((rack) => (
@@ -169,7 +235,7 @@ export function SitesPage() {
                   <option key={`rack-${rack.id}-site-${site.id}`} value={site.id}>{site.name}</option>
                 ))}
               </select>
-              <button type="button" className="rounded border px-3 py-2 text-sm" onClick={() => void assignRackToSite(rack)}>Zuordnen</button>
+              <button type="button" className="btn-secondary" onClick={() => void assignRackToSite(rack)}>Zuordnen</button>
             </div>
           ))}
         </div>

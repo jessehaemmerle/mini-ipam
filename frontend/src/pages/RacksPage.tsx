@@ -12,6 +12,8 @@ export function RacksPage() {
   const [selectedRack, setSelectedRack] = useState<number | null>(null);
   const [face, setFace] = useState<"front" | "rear">("front");
   const [form, setForm] = useState({ site_id: 1, name: "", height_u: 42 });
+  const [editingRack, setEditingRack] = useState(false);
+  const [editForm, setEditForm] = useState({ name: "", height_u: 42 });
   const [filters, setFilters] = useState({ q: "", minHeight: 0, healthOnly: false });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -61,8 +63,13 @@ export function RacksPage() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!form.name.trim() || form.height_u < 1) {
+      setError("Rack-Name und Hoehe >= 1 sind erforderlich.");
+      setMessage("");
+      return;
+    }
     try {
-      await post("/dcim/racks", form);
+      await post("/dcim/racks", { ...form, name: form.name.trim() });
       setForm({ ...form, name: "" });
       await load();
       setMessage("Rack gespeichert.");
@@ -73,24 +80,35 @@ export function RacksPage() {
     }
   };
 
-  const editRack = async () => {
+  const startEditRack = () => {
     const current = racks.find((r) => r.id === selectedRack);
     if (!current) return;
-    const name = window.prompt("Rack Name", current.name);
-    if (!name) return;
-    const height = window.prompt("Height U", String(current.height_u));
-    if (!height) return;
+    setEditForm({ name: current.name, height_u: current.height_u });
+    setEditingRack(true);
+    setMessage("");
+    setError("");
+  };
+
+  const saveRack = async () => {
+    const current = racks.find((r) => r.id === selectedRack);
+    if (!current) return;
+    if (!editForm.name.trim() || editForm.height_u < 1) {
+      setError("Rack-Name und Hoehe >= 1 sind erforderlich.");
+      setMessage("");
+      return;
+    }
     try {
       await put(`/dcim/racks/${current.id}`, {
         site_id: current.site_id,
         room_id: null,
-        name,
-        height_u: Number(height),
+        name: editForm.name.trim(),
+        height_u: Number(editForm.height_u),
         description: null,
       });
       await load();
       setMessage("Rack aktualisiert.");
       setError("");
+      setEditingRack(false);
     } catch (err: unknown) {
       setError(extractApiError(err));
       setMessage("");
@@ -129,10 +147,18 @@ export function RacksPage() {
   return (
     <div className="space-y-4">
       <PageHeader title="Racks" subtitle="Front/Rear SVG mit U-Slot-Placement" />
-      <form className="card flex gap-2" onSubmit={submit}>
-        <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Rack name" />
-        <input className="input w-24" type="number" value={form.height_u} onChange={(e) => setForm({ ...form, height_u: Number(e.target.value) })} />
-        <button className="btn" type="submit">Create Rack</button>
+      <form className="card grid gap-3 md:grid-cols-4" onSubmit={submit}>
+        <div className="field md:col-span-2">
+          <label className="field-label" htmlFor="rack-name">Rack Name</label>
+          <input id="rack-name" className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="z.B. Rack-A1" />
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="rack-height">Hoehe (U)</label>
+          <input id="rack-height" className="input" type="number" min={1} value={form.height_u} onChange={(e) => setForm({ ...form, height_u: Number(e.target.value) })} />
+        </div>
+        <div className="flex items-end">
+          <button className="btn w-full md:w-auto" type="submit">Rack anlegen</button>
+        </div>
       </form>
       {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
       {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
@@ -160,6 +186,9 @@ export function RacksPage() {
           />
           nur Probleme
         </label>
+        <button type="button" className="btn-secondary" onClick={() => setFilters({ q: "", minHeight: 0, healthOnly: false })}>
+          Filter zuruecksetzen
+        </button>
         <select
           className="input"
           value={selectedRack || ""}
@@ -181,10 +210,35 @@ export function RacksPage() {
           {filteredRacks.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
         </select>
         <button type="button" className="btn" onClick={() => setFace(face === "front" ? "rear" : "front")}>Toggle {face === "front" ? "Rear" : "Front"}</button>
-        <button type="button" className="rounded border px-3 py-2 text-sm" onClick={exportRackSvg}>Export SVG</button>
-        <button type="button" className="rounded border px-3 py-2 text-sm" onClick={() => void editRack()}>Edit Rack</button>
-        <button type="button" className="rounded border border-red-300 px-3 py-2 text-sm text-red-700" onClick={() => void deleteRack()}>Delete Rack</button>
+        <button type="button" className="btn-secondary" onClick={exportRackSvg}>Export SVG</button>
+        {editingRack ? (
+          <>
+            <button type="button" className="btn-secondary" onClick={() => setEditingRack(false)}>Abbrechen</button>
+            <button type="button" className="btn" onClick={() => void saveRack()}>Speichern</button>
+          </>
+        ) : (
+          <button type="button" className="btn-secondary" onClick={startEditRack}>Bearbeiten</button>
+        )}
+        <button type="button" className="btn-danger" onClick={() => void deleteRack()}>Loeschen</button>
       </div>
+      {editingRack && (
+        <div className="card grid gap-2 md:grid-cols-4">
+          <input
+            className="input md:col-span-2"
+            value={editForm.name}
+            onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+            placeholder="Rack Name"
+          />
+          <input
+            className="input"
+            type="number"
+            min={1}
+            value={editForm.height_u}
+            onChange={(e) => setEditForm((prev) => ({ ...prev, height_u: Number(e.target.value) }))}
+            placeholder="Hoehe U"
+          />
+        </div>
+      )}
 
       {rack && (
         <div ref={diagramWrapperRef}>

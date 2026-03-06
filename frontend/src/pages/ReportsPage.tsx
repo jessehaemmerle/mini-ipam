@@ -19,8 +19,14 @@ export function ReportsPage() {
   return (
     <div className="space-y-4">
       <PageHeader title="Reports" subtitle="Utilization, Konflikte, Orphans" />
-      <div className="card">
-        <input className="input" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Report-Filter (JSON Textsuche)" />
+      <div className="card flex flex-wrap items-end gap-2">
+        <div className="field">
+          <label className="field-label" htmlFor="report-filter">Filter</label>
+          <input id="report-filter" className="input" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="JSON Textsuche" />
+        </div>
+        <button type="button" className="btn-secondary" onClick={() => setFilter("")}>
+          Zuruecksetzen
+        </button>
       </div>
       <div className="card flex flex-wrap gap-2">
         <button className="btn" onClick={() => get<any[]>("/reports/ip-utilization").then(setUtilization)}>IP Utilization</button>

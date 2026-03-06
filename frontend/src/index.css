@@ -25,11 +25,15 @@ html.dark body {
 }
 
 .input {
-  @apply rounded-md border border-slate-300 bg-white px-3 py-2 text-sm transition-colors outline-none;
+  @apply min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm transition-colors outline-none;
 }
 
 .input:focus {
   @apply border-brand ring-2 ring-brand/20;
+}
+
+.input:disabled {
+  @apply cursor-not-allowed bg-slate-100 text-slate-500;
 }
 
 .btn {
@@ -40,8 +44,24 @@ html.dark body {
   @apply rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50;
 }
 
+.btn-danger {
+  @apply rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50;
+}
+
 .muted {
   @apply text-sm text-slate-500;
+}
+
+.field {
+  @apply flex min-w-[12rem] flex-1 flex-col gap-1;
+}
+
+.field-label {
+  @apply text-xs font-semibold uppercase tracking-wide text-slate-500;
+}
+
+.field-hint {
+  @apply text-xs text-slate-500;
 }
 
 html.dark .card {
@@ -60,6 +80,11 @@ html.dark .input::placeholder {
   color: #94a3b8;
 }
 
+html.dark .input:disabled {
+  background: #111827;
+  color: #64748b;
+}
+
 html.dark .btn {
   background: #256c52;
 }
@@ -72,6 +97,21 @@ html.dark .btn-secondary {
 
 html.dark .btn-secondary:hover {
   background: #1e293b;
+}
+
+html.dark .btn-danger {
+  border-color: #7f1d1d;
+  color: #fda4af;
+  background: #0b1220;
+}
+
+html.dark .btn-danger:hover {
+  background: #3f1d1d;
+}
+
+html.dark .field-label,
+html.dark .field-hint {
+  color: #94a3b8;
 }
 
 html.dark .muted {

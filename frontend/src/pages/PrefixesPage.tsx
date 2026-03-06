@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
 
 import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -11,6 +11,8 @@ export function PrefixesPage() {
   const [detail, setDetail] = useState<PrefixDetail | null>(null);
   const [tab, setTab] = useState<"overview" | "ips" | "history">("overview");
   const [form, setForm] = useState({ cidr: "", vrf_id: 1, role: "LAN" });
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ cidr: "", role: "" });
   const [filters, setFilters] = useState({ q: "", vrf_id: "" as number | "", role: "", status: "" });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -40,10 +42,19 @@ export function PrefixesPage() {
     });
   }, [items, filters]);
 
+  const roleOptions = useMemo(() => {
+    return Array.from(new Set(["LAN", ...items.map((item) => item.role)])).sort();
+  }, [items]);
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!form.cidr.trim()) {
+      setError("Bitte eine CIDR eingeben.");
+      setMessage("");
+      return;
+    }
     try {
-      await post("/ipam/prefixes", { ...form, status: "active" });
+      await post("/ipam/prefixes", { ...form, cidr: form.cidr.trim(), status: "active" });
       setForm({ cidr: "", vrf_id: form.vrf_id, role: "LAN" });
       load();
       setMessage("Prefix gespeichert.");
@@ -54,17 +65,25 @@ export function PrefixesPage() {
     }
   };
 
-  const editPrefix = async (item: Prefix) => {
-    const cidr = window.prompt("CIDR", item.cidr);
-    if (!cidr) return;
-    const role = window.prompt("Role", item.role);
-    if (!role) return;
+  const startEdit = (item: Prefix) => {
+    setEditingId(item.id);
+    setEditForm({ cidr: item.cidr, role: item.role });
+    setError("");
+    setMessage("");
+  };
+
+  const saveEdit = async (item: Prefix) => {
+    if (!editForm.cidr.trim() || !editForm.role.trim()) {
+      setError("CIDR und Role sind erforderlich.");
+      setMessage("");
+      return;
+    }
     try {
       await put(`/ipam/prefixes/${item.id}`, {
-        cidr,
+        cidr: editForm.cidr.trim(),
         vrf_id: item.vrf_id,
         site_id: item.site_id ?? null,
-        role,
+        role: editForm.role.trim(),
         status: item.status,
         description: item.description ?? null,
       });
@@ -74,6 +93,7 @@ export function PrefixesPage() {
       }
       setMessage("Prefix aktualisiert.");
       setError("");
+      setEditingId(null);
     } catch (err: unknown) {
       setError(extractApiError(err));
       setMessage("");
@@ -101,27 +121,54 @@ export function PrefixesPage() {
     <div className="space-y-4">
       <PageHeader
         title="Prefixes"
-        subtitle="Overview, schnelle Anlage, Auslastung je Prefix"
+        subtitle="Schnelles Anlegen, Filtern und direkte Bearbeitung in der Tabelle"
         meta={`${filteredItems.length} von ${items.length} Prefixen`}
       />
-      <form className="card flex flex-wrap items-end gap-2" onSubmit={onSubmit}>
-        <div>
-          <label className="muted">CIDR</label>
-          <input className="input ml-2" value={form.cidr} onChange={(e) => setForm({ ...form, cidr: e.target.value })} placeholder="10.10.0.0/24" />
+      <form className="card grid gap-3 md:grid-cols-4" onSubmit={onSubmit}>
+        <div className="field md:col-span-2">
+          <label className="field-label" htmlFor="prefix-cidr">CIDR</label>
+          <input
+            id="prefix-cidr"
+            className="input"
+            value={form.cidr}
+            onChange={(e) => setForm({ ...form, cidr: e.target.value })}
+            placeholder="10.10.0.0/24"
+          />
         </div>
-        <div>
-          <label className="muted">VRF</label>
-          <select className="input ml-2" value={form.vrf_id} onChange={(e) => setForm({ ...form, vrf_id: Number(e.target.value) })}>
+        <div className="field">
+          <label className="field-label" htmlFor="prefix-vrf">VRF</label>
+          <select
+            id="prefix-vrf"
+            className="input"
+            value={form.vrf_id}
+            onChange={(e) => setForm({ ...form, vrf_id: Number(e.target.value) })}
+          >
             {vrfs.map((vrf) => (
               <option key={vrf.id} value={vrf.id}>{vrf.name}</option>
             ))}
           </select>
         </div>
-        <button className="btn" type="submit">Quick Create</button>
+        <div className="field">
+          <label className="field-label" htmlFor="prefix-role">Role</label>
+          <select
+            id="prefix-role"
+            className="input"
+            value={form.role}
+            onChange={(e) => setForm({ ...form, role: e.target.value })}
+          >
+            {roleOptions.map((role) => (
+              <option key={role} value={role}>{role}</option>
+            ))}
+          </select>
+        </div>
+        <div className="md:col-span-4 flex flex-wrap items-center gap-2">
+          <button className="btn" type="submit">Prefix anlegen</button>
+          <p className="field-hint">Enter speichert direkt.</p>
+        </div>
       </form>
       {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
       {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
-      <div className="card flex flex-wrap gap-2">
+      <div className="card flex flex-wrap items-end gap-2">
         <input
           className="input"
           value={filters.q}
@@ -136,7 +183,7 @@ export function PrefixesPage() {
         </select>
         <select className="input" value={filters.role} onChange={(e) => setFilters((prev) => ({ ...prev, role: e.target.value }))}>
           <option value="">alle Roles</option>
-          {Array.from(new Set(items.map((item) => item.role))).sort().map((role) => (
+          {roleOptions.map((role) => (
             <option key={role} value={role}>{role}</option>
           ))}
         </select>
@@ -168,20 +215,77 @@ export function PrefixesPage() {
           </thead>
           <tbody>
             {filteredItems.map((item) => (
-              <tr
-                key={item.id}
-                className={`border-b cursor-pointer ${selectedId === item.id ? "bg-amber-50" : ""}`}
-                onClick={() => loadDetail(item.id)}
-              >
-                <td className="p-2 font-semibold">{item.cidr}</td>
-                <td className="p-2">{item.vrf_id}</td>
-                <td className="p-2">{item.role}</td>
-                <td className="p-2">{item.status}</td>
-                <td className="p-2">
-                  <button className="mr-2 rounded border px-2 py-1 text-xs" onClick={(e) => { e.stopPropagation(); void editPrefix(item); }}>Edit</button>
-                  <button className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={(e) => { e.stopPropagation(); void deletePrefix(item); }}>Delete</button>
-                </td>
-              </tr>
+              <Fragment key={item.id}>
+                <tr
+                  className={`border-b cursor-pointer ${selectedId === item.id ? "bg-amber-50" : ""}`}
+                  onClick={() => loadDetail(item.id)}
+                >
+                  <td className="p-2 font-semibold">{item.cidr}</td>
+                  <td className="p-2">{item.vrf_id}</td>
+                  <td className="p-2">{item.role}</td>
+                  <td className="p-2">{item.status}</td>
+                  <td className="p-2">
+                    <div className="flex flex-wrap gap-2">
+                      {editingId === item.id ? (
+                        <button
+                          className="btn-secondary px-2 py-1 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingId(null);
+                          }}
+                        >
+                          Abbrechen
+                        </button>
+                      ) : (
+                        <button
+                          className="btn-secondary px-2 py-1 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEdit(item);
+                          }}
+                        >
+                          Bearbeiten
+                        </button>
+                      )}
+                      <button
+                        className="btn-danger px-2 py-1 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void deletePrefix(item);
+                        }}
+                      >
+                        Loeschen
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {editingId === item.id && (
+                  <tr className="border-b bg-slate-50/80">
+                    <td className="p-2" colSpan={5}>
+                      <div className="grid gap-2 md:grid-cols-4">
+                        <input
+                          className="input md:col-span-2"
+                          value={editForm.cidr}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, cidr: e.target.value }))}
+                          placeholder="CIDR"
+                        />
+                        <select
+                          className="input"
+                          value={editForm.role}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value }))}
+                        >
+                          {roleOptions.map((role) => (
+                            <option key={`edit-role-${role}`} value={role}>{role}</option>
+                          ))}
+                        </select>
+                        <button className="btn" type="button" onClick={() => void saveEdit(item)}>
+                          Aenderungen speichern
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
             {filteredItems.length === 0 && (
               <tr>
