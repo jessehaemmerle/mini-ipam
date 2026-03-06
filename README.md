@@ -291,5 +291,5 @@ Hinweis: In Docker Compose ist `DATABASE_URL` standardmaessig auf PostgreSQL ges
 
 ## Lizenz
 
-Derzeit keine separate Lizenzdatei im Repository hinterlegt.
+MIT License.
 
