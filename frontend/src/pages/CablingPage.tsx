@@ -44,6 +44,7 @@ export function CablingPage() {
 
   const deviceById = useMemo(() => Object.fromEntries(devices.map((d) => [d.id, d])), [devices]);
   const siteById = useMemo(() => Object.fromEntries(sites.map((s) => [s.id, s])), [sites]);
+  const rackById = useMemo(() => Object.fromEntries(racks.map((rack) => [rack.id, rack])), [racks]);
   const endpointByKey = useMemo(
     () => Object.fromEntries(endpointOptions.map((item) => [`${item.type}:${item.id}`, item])),
     [endpointOptions]
@@ -144,6 +145,53 @@ export function CablingPage() {
       );
     });
   }, [patchPorts, patchFilter, deviceById]);
+
+  const cableVisualRows = useMemo(() => {
+    const rows = filteredCables.map((cable) => {
+      const leftEndpoint = endpointByKey[`${cable.endpoint_a_type}:${cable.endpoint_a_id}`];
+      const rightEndpoint = endpointByKey[`${cable.endpoint_b_type}:${cable.endpoint_b_id}`];
+      const leftDeviceId = leftEndpoint ? (leftEndpoint.type === "interface" ? leftEndpoint.device_id : leftEndpoint.panel_id) : undefined;
+      const rightDeviceId = rightEndpoint ? (rightEndpoint.type === "interface" ? rightEndpoint.device_id : rightEndpoint.panel_id) : undefined;
+      const leftDevice = leftDeviceId ? deviceById[leftDeviceId] || null : null;
+      const rightDevice = rightDeviceId ? deviceById[rightDeviceId] || null : null;
+      const leftRack = leftDevice?.rack_id ? rackById[leftDevice.rack_id] : null;
+      const rightRack = rightDevice?.rack_id ? rackById[rightDevice.rack_id] : null;
+      const leftSite = leftRack ? siteById[leftRack.site_id] : null;
+      const rightSite = rightRack ? siteById[rightRack.site_id] : null;
+      return {
+        id: cable.id,
+        cable_type: cable.cable_type,
+        label: cable.label || "-",
+        left_device: leftDevice?.name || "-",
+        left_port: leftEndpoint?.name || `${cable.endpoint_a_type}:${cable.endpoint_a_id}`,
+        left_rack: leftRack ? `${leftSite?.name || "Site"} / ${leftRack.name}` : "Ohne Rack",
+        right_device: rightDevice?.name || "-",
+        right_port: rightEndpoint?.name || `${cable.endpoint_b_type}:${cable.endpoint_b_id}`,
+        right_rack: rightRack ? `${rightSite?.name || "Site"} / ${rightRack.name}` : "Ohne Rack",
+        left_rack_id: leftRack?.id ?? null,
+        right_rack_id: rightRack?.id ?? null,
+      };
+    });
+
+    rows.sort((left, right) => {
+      if (left.left_rack !== right.left_rack) return left.left_rack.localeCompare(right.left_rack);
+      if (left.left_device !== right.left_device) return left.left_device.localeCompare(right.left_device);
+      if (left.right_rack !== right.right_rack) return left.right_rack.localeCompare(right.right_rack);
+      if (left.right_device !== right.right_device) return left.right_device.localeCompare(right.right_device);
+      return left.left_port.localeCompare(right.left_port);
+    });
+    return rows;
+  }, [filteredCables, endpointByKey, deviceById, rackById, siteById]);
+
+  const rackFocusedRows = useMemo(() => {
+    if (connectForm.rack_a === "" && connectForm.rack_b === "") return cableVisualRows;
+    return cableVisualRows.filter((row) => {
+      const inA = connectForm.rack_a !== "" && (row.left_rack_id === connectForm.rack_a || row.right_rack_id === connectForm.rack_a);
+      const inB = connectForm.rack_b !== "" && (row.left_rack_id === connectForm.rack_b || row.right_rack_id === connectForm.rack_b);
+      if (connectForm.rack_a !== "" && connectForm.rack_b !== "") return inA && inB;
+      return inA || inB;
+    });
+  }, [cableVisualRows, connectForm.rack_a, connectForm.rack_b]);
 
   const load = async () => {
     try {
@@ -445,6 +493,51 @@ export function CablingPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         {renderRackColumn("Rack A", connectForm.rack_a, (value) => setConnectForm((prev) => ({ ...prev, rack_a: value })), rackADevices)}
         {renderRackColumn("Rack B", connectForm.rack_b, (value) => setConnectForm((prev) => ({ ...prev, rack_b: value })), rackBDevices)}
+      </div>
+
+      <div className="card overflow-x-auto">
+        <h2 className="text-lg font-semibold text-ink">Verbindungsplan (geraeteorientiert)</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Zeigt je Kabel direkt: welches Geraet mit welchem Port an welches Zielgeraet verbunden ist.
+        </p>
+        <table className="mt-3 w-full text-sm">
+          <thead>
+            <tr className="border-b text-left">
+              <th className="p-2">Rack links</th>
+              <th className="p-2">Geraet links</th>
+              <th className="p-2">Port links</th>
+              <th className="p-2">Verbindung</th>
+              <th className="p-2">Port rechts</th>
+              <th className="p-2">Geraet rechts</th>
+              <th className="p-2">Rack rechts</th>
+              <th className="p-2">Kabel</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rackFocusedRows.map((row) => (
+              <tr key={`visual-${row.id}`} className="border-b">
+                <td className="p-2">{row.left_rack}</td>
+                <td className="p-2 font-semibold">{row.left_device}</td>
+                <td className="p-2">{row.left_port}</td>
+                <td className="p-2 text-center">{"<->"}</td>
+                <td className="p-2">{row.right_port}</td>
+                <td className="p-2 font-semibold">{row.right_device}</td>
+                <td className="p-2">{row.right_rack}</td>
+                <td className="p-2">
+                  {row.cable_type}
+                  {row.label !== "-" ? ` (${row.label})` : ""}
+                </td>
+              </tr>
+            ))}
+            {rackFocusedRows.length === 0 && (
+              <tr>
+                <td className="p-3 text-sm text-slate-500" colSpan={8}>
+                  Keine Verbindungen fuer die aktuelle Rack-Auswahl vorhanden.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       <div className="card overflow-x-auto">
