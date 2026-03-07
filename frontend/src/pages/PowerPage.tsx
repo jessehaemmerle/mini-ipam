@@ -337,7 +337,7 @@ export function PowerPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Power" subtitle="Einfacher Workflow: Endpunkte anlegen, verbinden, Rack-Map automatisch aktualisieren" />
+      <PageHeader title="Stromversorgung" subtitle="Power-Endpunkte anlegen, verbinden und Versorgungsstatus je Geraet pruefen." />
       {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
       {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
       <div className="grid gap-3 md:grid-cols-4">

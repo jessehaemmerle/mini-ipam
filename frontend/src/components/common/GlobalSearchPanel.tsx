@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { del, extractApiError, get, put } from "../../api/client";
@@ -31,6 +31,58 @@ function valueToString(value: unknown): string {
   return JSON.stringify(value);
 }
 
+type GroupConfig = {
+  key: keyof SearchResult;
+  title: string;
+  to: string;
+  rowText: (item: Record<string, unknown>) => string;
+};
+
+const GROUPS: GroupConfig[] = [
+  {
+    key: "prefixes",
+    title: "Netzbereiche",
+    to: "/ipam/prefixes",
+    rowText: (item) => valueToString(item.cidr),
+  },
+  {
+    key: "ips",
+    title: "IP-Adressen",
+    to: "/ipam/ips",
+    rowText: (item) => `${valueToString(item.address)} (${valueToString(item.status)})`,
+  },
+  {
+    key: "vlans",
+    title: "VLANs",
+    to: "/vlans",
+    rowText: (item) => `${valueToString(item.vid)} - ${valueToString(item.name)}`,
+  },
+  {
+    key: "devices",
+    title: "Geraete",
+    to: "/devices",
+    rowText: (item) => valueToString(item.name),
+  },
+  {
+    key: "racks",
+    title: "Racks",
+    to: "/racks",
+    rowText: (item) => valueToString(item.name),
+  },
+  {
+    key: "cables",
+    title: "Kabel",
+    to: "/cabling",
+    rowText: (item) => `#${valueToString(item.id)} ${valueToString(item.label)}`,
+  },
+  {
+    key: "patch_ports",
+    title: "Patchports",
+    to: "/cabling",
+    rowText: (item) => `${valueToString(item.front_port_name)} / ${valueToString(item.back_port_name)}`,
+  },
+];
+
 export function GlobalSearchPanel() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -40,22 +92,17 @@ export function GlobalSearchPanel() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const hasResult =
-    result.prefixes.length > 0 ||
-    result.ips.length > 0 ||
-    result.vlans.length > 0 ||
-    result.devices.length > 0 ||
-    result.racks.length > 0 ||
-    result.cables.length > 0 ||
-    (result.patch_ports?.length || 0) > 0;
-  const totalHits =
-    result.prefixes.length +
-    result.ips.length +
-    result.vlans.length +
-    result.devices.length +
-    result.racks.length +
-    result.cables.length +
-    (result.patch_ports?.length || 0);
+  const totalHits = useMemo(() => {
+    return (
+      result.prefixes.length +
+      result.ips.length +
+      result.vlans.length +
+      result.devices.length +
+      result.racks.length +
+      result.cables.length +
+      (result.patch_ports?.length || 0)
+    );
+  }, [result]);
 
   const runSearch = async () => {
     if (!query.trim()) {
@@ -123,7 +170,7 @@ export function GlobalSearchPanel() {
   };
 
   return (
-    <div className="card space-y-3">
+    <div className="space-y-3">
       <div className="flex gap-2">
         <input
           className="input flex-1"
@@ -135,102 +182,72 @@ export function GlobalSearchPanel() {
               void runSearch();
             }
           }}
-          placeholder="Global search: IP, Prefix, VLAN, Device, Rack, Cable"
+          placeholder="Suche nach IP, Netzwerk, VLAN, Geraet, Rack oder Kabel"
         />
         <button className="btn" type="button" onClick={() => void runSearch()} disabled={loading}>
-          {loading ? "Searching..." : "Search"}
+          {loading ? "Suche laeuft..." : "Suchen"}
         </button>
       </div>
-      <p className="muted">Tipp: Mit Enter starten. Aktionen wie Copy/Open sind direkt je Treffer verfuegbar.</p>
 
-      {message && <div className="rounded border border-green-200 bg-green-50 p-2 text-sm text-green-800">{message}</div>}
-      {error && <div className="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-800">{error}</div>}
-      {searched && !loading && <p className="text-xs font-medium text-slate-500">{totalHits} Treffer fuer "{query.trim()}".</p>}
-      {searched && !loading && !hasResult && (
-        <div className="rounded border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-          Keine Treffer gefunden. Versuche eine kuerzere oder allgemeinere Suche.
+      {message && <div className="rounded-md border border-green-200 bg-green-50 p-2 text-sm text-green-800">{message}</div>}
+      {error && <div className="rounded-md border border-red-200 bg-red-50 p-2 text-sm text-red-800">{error}</div>}
+      {searched && !loading && (
+        <p className="text-sm text-slate-600">
+          {totalHits} Treffer fuer "{query.trim()}".
+        </p>
+      )}
+
+      {searched && !loading && totalHits === 0 && (
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+          Keine Treffer gefunden. Verwende einen kuerzeren oder allgemeineren Suchbegriff.
         </div>
       )}
 
-      {hasResult && (
-        <div className="space-y-3 text-sm">
-          <div>
-            <p className="mb-1 font-semibold">Prefixes ({result.prefixes.length})</p>
-            {result.prefixes.map((item) => (
-              <div key={`prefix-${valueToString(item.id)}`} className="mb-1 flex flex-wrap items-center gap-2 border-b p-1">
-                <span>{valueToString(item.cidr)}</span>
-                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => navigate("/ipam/prefixes")}>Open</button>
-                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => void copyValue(valueToString(item.cidr))}>Copy</button>
+      {totalHits > 0 && (
+        <div className="space-y-3">
+          {GROUPS.map((group) => {
+            const items = (result[group.key] || []) as Record<string, unknown>[];
+            if (!items.length) return null;
+            return (
+              <div key={group.key} className="rounded-md border border-slate-200">
+                <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
+                  <p className="text-sm font-semibold text-ink">
+                    {group.title} ({items.length})
+                  </p>
+                  <button className="btn-secondary px-2 py-1 text-xs" type="button" onClick={() => navigate(group.to)}>
+                    Seite oeffnen
+                  </button>
+                </div>
+                <div className="divide-y divide-slate-200">
+                  {items.slice(0, 8).map((item) => (
+                    <div key={`${group.key}-${valueToString(item.id)}`} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
+                      <span>{group.rowText(item)}</span>
+                      <div className="flex flex-wrap gap-2">
+                        <button type="button" className="btn-secondary px-2 py-1 text-xs" onClick={() => void copyValue(group.rowText(item))}>
+                          Kopieren
+                        </button>
+                        {group.key === "ips" && (
+                          <>
+                            <button type="button" className="btn-secondary px-2 py-1 text-xs" onClick={() => void updateIpStatus(item, "free")}>
+                              Als frei
+                            </button>
+                            <button type="button" className="btn-secondary px-2 py-1 text-xs" onClick={() => void updateIpStatus(item, "reserved")}>
+                              Als reserviert
+                            </button>
+                          </>
+                        )}
+                        {group.key === "cables" && (
+                          <button type="button" className="btn-danger px-2 py-1 text-xs" onClick={() => void deleteCable(item)}>
+                            Kabel loeschen
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-
-          <div>
-            <p className="mb-1 font-semibold">IPs ({result.ips.length})</p>
-            {result.ips.map((item) => (
-              <div key={`ip-${valueToString(item.id)}`} className="mb-1 flex flex-wrap items-center gap-2 border-b p-1">
-                <span>{valueToString(item.address)} ({valueToString(item.status)})</span>
-                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => navigate("/ipam/ips")}>Open</button>
-                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => void copyValue(valueToString(item.address))}>Copy</button>
-                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => void updateIpStatus(item, "free")}>Set free</button>
-                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => void updateIpStatus(item, "reserved")}>Set reserved</button>
-              </div>
-            ))}
-          </div>
-
-          <div>
-            <p className="mb-1 font-semibold">VLANs ({result.vlans.length})</p>
-            {result.vlans.map((item) => (
-              <div key={`vlan-${valueToString(item.id)}`} className="mb-1 flex flex-wrap items-center gap-2 border-b p-1">
-                <span>{valueToString(item.vid)} / {valueToString(item.name)}</span>
-                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => navigate("/vlans")}>Open</button>
-                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => void copyValue(valueToString(item.name))}>Copy</button>
-              </div>
-            ))}
-          </div>
-
-          <div>
-            <p className="mb-1 font-semibold">Devices ({result.devices.length})</p>
-            {result.devices.map((item) => (
-              <div key={`device-${valueToString(item.id)}`} className="mb-1 flex flex-wrap items-center gap-2 border-b p-1">
-                <span>{valueToString(item.name)}</span>
-                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => navigate("/devices")}>Open</button>
-                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => void copyValue(valueToString(item.name))}>Copy</button>
-              </div>
-            ))}
-          </div>
-
-          <div>
-            <p className="mb-1 font-semibold">Racks ({result.racks.length})</p>
-            {result.racks.map((item) => (
-              <div key={`rack-${valueToString(item.id)}`} className="mb-1 flex flex-wrap items-center gap-2 border-b p-1">
-                <span>{valueToString(item.name)}</span>
-                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => navigate("/racks")}>Open</button>
-                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => void copyValue(valueToString(item.name))}>Copy</button>
-              </div>
-            ))}
-          </div>
-
-          <div>
-            <p className="mb-1 font-semibold">Cables ({result.cables.length})</p>
-            {result.cables.map((item) => (
-              <div key={`cable-${valueToString(item.id)}`} className="mb-1 flex flex-wrap items-center gap-2 border-b p-1">
-                <span>#{valueToString(item.id)} {valueToString(item.label)}</span>
-                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => navigate("/cabling")}>Open</button>
-                <button type="button" className="rounded border border-red-300 px-2 py-1 text-xs text-red-700" onClick={() => void deleteCable(item)}>Delete</button>
-              </div>
-            ))}
-          </div>
-          <div>
-            <p className="mb-1 font-semibold">Patch Ports ({result.patch_ports?.length || 0})</p>
-            {(result.patch_ports || []).map((item) => (
-              <div key={`patch-${valueToString(item.id)}`} className="mb-1 flex flex-wrap items-center gap-2 border-b p-1">
-                <span>{valueToString(item.front_port_name)} / {valueToString(item.back_port_name)}</span>
-                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => navigate("/cabling")}>Open</button>
-                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => void copyValue(valueToString(item.front_port_name))}>Copy</button>
-              </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
       )}
     </div>

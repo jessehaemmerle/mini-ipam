@@ -26,12 +26,12 @@ export function DashboardPage() {
     <div className="space-y-4">
       <PageHeader
         title="Startseite"
-        subtitle="Diese Seite fuehrt durch die wichtigsten Schritte der Ersteinrichtung."
+        subtitle="Nutze diese Reihenfolge fuer eine schnelle und saubere Einrichtung."
         meta={`${Object.keys(stats).length} Kennzahlen verfuegbar`}
       />
 
       <div className="card">
-        <h2 className="text-lg font-semibold text-ink">Schnellstart</h2>
+        <h2 className="text-lg font-semibold text-ink">Empfohlene Reihenfolge</h2>
         <ol className="mt-3 space-y-3 text-sm text-slate-700">
           <li>
             1. Netzraum anlegen:{" "}
@@ -87,8 +87,8 @@ export function DashboardPage() {
       )}
 
       <div className="card">
-        <h2 className="text-lg font-semibold text-ink">Suche</h2>
-        <p className="mt-1 text-sm text-slate-600">Direktes Finden von Prefixen, IPs, Geraeten und anderen Objekten.</p>
+        <h2 className="text-lg font-semibold text-ink">Direkt suchen</h2>
+        <p className="mt-1 text-sm text-slate-600">Finde Prefixe, IPs, VLANs, Geraete, Racks und Kabel ueber ein zentrales Suchfeld.</p>
         <GlobalSearchPanel />
       </div>
     </div>

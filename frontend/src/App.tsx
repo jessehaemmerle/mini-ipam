@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Route, Routes } from "react-router-dom";
 
+import { AppTopbar } from "./components/layout/AppTopbar";
 import { Sidebar } from "./components/layout/Sidebar";
 import { SettingsProvider } from "./context/SettingsContext";
 import { AdminPage } from "./pages/AdminPage";
@@ -29,21 +30,24 @@ function App() {
           onToggle={() => setMobileMenuOpen((prev) => !prev)}
         />
         <main className="flex-1 overflow-y-auto p-4 pt-16 md:p-6 md:pt-6">
-          <Routes>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/ipam/prefixes" element={<PrefixesPage />} />
-            <Route path="/ipam/ips" element={<IPsPage />} />
-            <Route path="/ipam/vrfs" element={<VRFsPage />} />
-            <Route path="/vlans" element={<VLANsPage />} />
-            <Route path="/sites" element={<SitesPage />} />
-            <Route path="/racks" element={<RacksPage />} />
-            <Route path="/devices" element={<DevicesPage />} />
-            <Route path="/cabling" element={<CablingPage />} />
-            <Route path="/power" element={<PowerPage />} />
-            <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/admin" element={<AdminPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-          </Routes>
+          <div className="mx-auto w-full max-w-[1400px] space-y-4">
+            <AppTopbar />
+            <Routes>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/ipam/prefixes" element={<PrefixesPage />} />
+              <Route path="/ipam/ips" element={<IPsPage />} />
+              <Route path="/ipam/vrfs" element={<VRFsPage />} />
+              <Route path="/vlans" element={<VLANsPage />} />
+              <Route path="/sites" element={<SitesPage />} />
+              <Route path="/racks" element={<RacksPage />} />
+              <Route path="/devices" element={<DevicesPage />} />
+              <Route path="/cabling" element={<CablingPage />} />
+              <Route path="/power" element={<PowerPage />} />
+              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/admin" element={<AdminPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+            </Routes>
+          </div>
         </main>
       </div>
     </SettingsProvider>

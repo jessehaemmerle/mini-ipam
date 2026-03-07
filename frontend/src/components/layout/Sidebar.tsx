@@ -12,11 +12,11 @@ export function Sidebar({ mobileOpen, onClose, onToggle }: SidebarProps) {
   const { labels } = useSettings();
   const navSections: Array<{ title: string; items: Array<[string, string]> }> = [
     {
-      title: "Start",
+      title: "Einstieg",
       items: [[labels.nav.dashboard, "/"]],
     },
     {
-      title: "IP-Management",
+      title: "1. Netzwerk aufbauen",
       items: [
         [labels.nav.prefixes, "/ipam/prefixes"],
         [labels.nav.ips, "/ipam/ips"],
@@ -25,7 +25,7 @@ export function Sidebar({ mobileOpen, onClose, onToggle }: SidebarProps) {
       ],
     },
     {
-      title: "Infrastruktur",
+      title: "2. Infrastruktur erfassen",
       items: [
         [labels.nav.sites, "/sites"],
         [labels.nav.racks, "/racks"],
@@ -35,7 +35,7 @@ export function Sidebar({ mobileOpen, onClose, onToggle }: SidebarProps) {
       ],
     },
     {
-      title: "System",
+      title: "3. Pruefen & Verwalten",
       items: [
         [labels.nav.reports, "/reports"],
         [labels.nav.admin, "/admin"],
@@ -68,7 +68,7 @@ export function Sidebar({ mobileOpen, onClose, onToggle }: SidebarProps) {
       >
         <div className="mb-4 border-b border-slate-200 pb-3">
           <p className="text-base font-semibold text-ink">mini-ipam</p>
-          <p className="mt-1 text-sm text-slate-600">Navigation</p>
+          <p className="mt-1 text-sm text-slate-600">Arbeitsnavigation</p>
         </div>
         <div className="space-y-4">
           {navSections.map((section) => (

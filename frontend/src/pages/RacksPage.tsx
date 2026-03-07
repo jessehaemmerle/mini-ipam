@@ -146,7 +146,7 @@ export function RacksPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Racks" subtitle="Front/Rear SVG mit U-Slot-Placement" />
+      <PageHeader title="Racks" subtitle="Geraete im Rack platzieren und Front/Rear-Belegung nachvollziehen." />
       <form className="card grid gap-3 md:grid-cols-4" onSubmit={submit}>
         <div className="field md:col-span-2">
           <label className="field-label" htmlFor="rack-name">Rack Name</label>

@@ -230,7 +230,7 @@ export function DevicesPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Devices" subtitle="Inventar, Rollen, Serials, Asset-Tags" />
+      <PageHeader title="Geraete" subtitle="Inventar pflegen, Rollen setzen und Rack-/Site-Zuordnung direkt steuern." />
       <form className="card flex flex-wrap gap-2" onSubmit={submit}>
         <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Device name" />
         <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>

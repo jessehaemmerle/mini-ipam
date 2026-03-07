@@ -133,7 +133,7 @@ export function SitesPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Sites" subtitle="Standorte und Rack-Zuordnung" />
+      <PageHeader title="Standorte" subtitle="Standorte anlegen und Racks korrekt zuordnen." />
       <form className="card grid gap-3 md:grid-cols-4" onSubmit={submit}>
         <div className="field md:col-span-2">
           <label className="field-label" htmlFor="site-name">Name</label>

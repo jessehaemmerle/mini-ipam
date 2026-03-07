@@ -94,7 +94,7 @@ export function VRFsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="VRFs" subtitle="Einfacher VRF-Scope fuer Prefixes/IPs" />
+      <PageHeader title="Netzraeume (VRF)" subtitle="Trennt Netzbereiche logisch, damit gleiche IP-Bereiche mehrfach verwendet werden koennen." />
       <form className="card grid gap-3 md:grid-cols-3" onSubmit={submit}>
         <div className="field md:col-span-2">
           <label htmlFor="vrf-name" className="field-label">VRF Name</label>

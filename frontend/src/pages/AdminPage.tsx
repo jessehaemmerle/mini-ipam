@@ -28,27 +28,39 @@ export function AdminPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Admin" subtitle="Lokale Anmeldung, Suche, CSV Import" />
+      <PageHeader title="Administration" subtitle="Anmelden, global suchen und CSV-Daten importieren/exportieren." />
 
       <form className="card grid gap-3 md:grid-cols-3" onSubmit={submitLogin}>
+        <div className="md:col-span-3">
+          <h2 className="text-lg font-semibold text-ink">Anmeldung</h2>
+        </div>
         <div className="field">
-          <label className="field-label" htmlFor="admin-user">Username</label>
+          <label className="field-label" htmlFor="admin-user">Benutzername</label>
           <input id="admin-user" className="input" value={login.username} onChange={(e) => setLogin({ ...login, username: e.target.value })} />
         </div>
         <div className="field">
-          <label className="field-label" htmlFor="admin-pass">Password</label>
+          <label className="field-label" htmlFor="admin-pass">Passwort</label>
           <input id="admin-pass" className="input" type="password" value={login.password} onChange={(e) => setLogin({ ...login, password: e.target.value })} />
         </div>
         <div className="flex items-end">
-          <button className="btn w-full md:w-auto" type="submit">Login</button>
+          <button className="btn w-full md:w-auto" type="submit">Anmelden</button>
         </div>
       </form>
 
-      <GlobalSearchPanel />
+      <div className="card">
+        <h2 className="text-lg font-semibold text-ink">Globale Suche</h2>
+        <p className="mt-1 text-sm text-slate-600">Schneller Zugriff auf alle Objekttypen inklusive direkter Aktionen.</p>
+        <div className="mt-3">
+          <GlobalSearchPanel />
+        </div>
+      </div>
 
       <div className="card flex flex-wrap items-end gap-2">
+        <div className="w-full">
+          <h2 className="text-lg font-semibold text-ink">CSV-Import</h2>
+        </div>
         <div className="field">
-          <label className="field-label" htmlFor="admin-import-type">Import Typ</label>
+          <label className="field-label" htmlFor="admin-import-type">Datenart</label>
           <select id="admin-import-type" className="input" value={importType} onChange={(e) => setImportType(e.target.value as "prefixes" | "ipaddresses" | "vlans")}>
             <option value="prefixes">prefixes</option>
             <option value="ipaddresses">ipaddresses</option>
@@ -56,19 +68,23 @@ export function AdminPage() {
           </select>
         </div>
         <div className="field">
-          <label className="field-label" htmlFor="admin-import-file">CSV Datei</label>
+          <label className="field-label" htmlFor="admin-import-file">CSV-Datei</label>
           <input id="admin-import-file" className="input" type="file" accept=".csv" onChange={(e) => setFile(e.target.files?.[0] || null)} />
         </div>
-        <button className="btn" type="button" onClick={importCsv}>CSV importieren</button>
+        <button className="btn" type="button" onClick={importCsv}>Import starten</button>
       </div>
 
       <div className="card flex flex-wrap gap-2">
-        <button className="btn-secondary" type="button" onClick={() => exportCsv("prefixes")}>Prefixes CSV</button>
-        <button className="btn-secondary" type="button" onClick={() => exportCsv("ipaddresses")}>IPs CSV</button>
-        <button className="btn-secondary" type="button" onClick={() => exportCsv("vlans")}>VLANs CSV</button>
+        <h2 className="w-full text-lg font-semibold text-ink">CSV-Export</h2>
+        <button className="btn-secondary" type="button" onClick={() => exportCsv("prefixes")}>Netzbereiche exportieren</button>
+        <button className="btn-secondary" type="button" onClick={() => exportCsv("ipaddresses")}>IP-Adressen exportieren</button>
+        <button className="btn-secondary" type="button" onClick={() => exportCsv("vlans")}>VLANs exportieren</button>
       </div>
 
-      <div className="card whitespace-pre-wrap text-xs">{JSON.stringify(result, null, 2)}</div>
+      <div className="card">
+        <h2 className="text-lg font-semibold text-ink">Import-Ergebnis</h2>
+        <pre className="mt-2 overflow-auto whitespace-pre-wrap text-xs text-slate-700">{JSON.stringify(result, null, 2)}</pre>
+      </div>
     </div>
   );
 }
