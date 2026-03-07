@@ -1,43 +1,36 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { del, extractApiError, get, post, put } from "../api/client";
-import { CablePathGraph } from "../components/cable/CablePathGraph";
-import { CableTopologyGraph } from "../components/cable/CableTopologyGraph";
 import { PageHeader } from "../components/common/PageHeader";
-import { Cable, Device, EndpointOption, PatchPort, Site } from "../types";
-
-type PathResult = {
-  nodes: string[];
-  edges: { from: [string, number]; to: [string, number]; cable_id: number }[];
-  table: { from: string; to: string; cable_id: number }[];
-};
+import { Cable, Device, EndpointOption, PatchPort, Rack, Site } from "../types";
 
 type EndpointResponse = {
   interfaces: EndpointOption[];
   patch_ports: EndpointOption[];
 };
 
+type RackSelectValue = number | "";
+
 export function CablingPage() {
-  const [path, setPath] = useState<PathResult | null>(null);
   const [cables, setCables] = useState<Cable[]>([]);
   const [patchPorts, setPatchPorts] = useState<PatchPort[]>([]);
   const [endpointOptions, setEndpointOptions] = useState<EndpointOption[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
+  const [racks, setRacks] = useState<Rack[]>([]);
+
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
   const [listFilter, setListFilter] = useState({ q: "", cable_type: "" });
   const [patchFilter, setPatchFilter] = useState({ q: "", panel_id: "" as number | "" });
   const [editingPatchPortId, setEditingPatchPortId] = useState<number | null>(null);
-
-  const [lookupKey, setLookupKey] = useState("");
-  const [form, setForm] = useState({
-    site_a: "",
-    device_a: "",
-    endpoint_a_key: "",
-    site_b: "",
-    device_b: "",
-    endpoint_b_key: "",
+  const [dragSourceKey, setDragSourceKey] = useState("");
+  const [dropTargetKey, setDropTargetKey] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  const [connectForm, setConnectForm] = useState({
+    rack_a: "" as RackSelectValue,
+    rack_b: "" as RackSelectValue,
     cable_type: "cat6",
     label: "",
   });
@@ -49,108 +42,95 @@ export function CablingPage() {
     allow_multi: false,
   });
 
-  const optionByKey = useMemo(
+  const deviceById = useMemo(() => Object.fromEntries(devices.map((d) => [d.id, d])), [devices]);
+  const siteById = useMemo(() => Object.fromEntries(sites.map((s) => [s.id, s])), [sites]);
+  const endpointByKey = useMemo(
     () => Object.fromEntries(endpointOptions.map((item) => [`${item.type}:${item.id}`, item])),
     [endpointOptions]
   );
-  const deviceById = useMemo(
-    () => Object.fromEntries(devices.map((device) => [device.id, device.name])),
-    [devices]
-  );
-  const patchPanels = useMemo(
-    () => devices.filter((device) => device.role === "patchpanel"),
-    [devices]
-  );
-  const patchPanelChoices = useMemo(() => {
-    const map = new Map<string, { value: string; label: string; site_id?: number | null }>();
-    endpointOptions.forEach((opt) => {
-      if (opt.type === "patch_port" && opt.panel_id && opt.panel_name) {
-        map.set(`panel:${opt.panel_id}`, {
-          value: `panel:${opt.panel_id}`,
-          label: opt.panel_name,
-          site_id: opt.site_id ?? null,
-        });
-      }
-    });
-    return Array.from(map.values());
-  }, [endpointOptions]);
-  const siteChoices = useMemo(() => {
-    return [...sites]
-      .map((s) => ({ id: s.id, name: s.name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [sites]);
-  const endpointAOptions = useMemo(
-    () =>
-      endpointOptions.filter((opt) => {
-        if (form.site_a && String(opt.site_id) !== form.site_a) return false;
-        if (!form.device_a) return true;
-        if (form.device_a.startsWith("device:")) return opt.type === "interface" && `device:${opt.device_id}` === form.device_a;
-        return opt.type === "patch_port" && `panel:${opt.panel_id}` === form.device_a;
-      }),
-    [endpointOptions, form.site_a, form.device_a]
-  );
-  const endpointBOptions = useMemo(
-    () =>
-      endpointOptions.filter((opt) => {
-        if (form.site_b && String(opt.site_id) !== form.site_b) return false;
-        if (!form.device_b) return true;
-        if (form.device_b.startsWith("device:")) return opt.type === "interface" && `device:${opt.device_id}` === form.device_b;
-        return opt.type === "patch_port" && `panel:${opt.panel_id}` === form.device_b;
-      }),
-    [endpointOptions, form.site_b, form.device_b]
-  );
-  const deviceAChoices = useMemo(() => {
-    const base = devices
-      .filter((dev) => !form.site_a || (dev.site_id !== null && dev.site_id !== undefined && String(dev.site_id) === form.site_a))
-      .map((dev) => ({ value: `device:${dev.id}`, label: dev.name }));
-    const panels = patchPanelChoices
-      .filter((panel) => !form.site_a || (panel.site_id !== null && panel.site_id !== undefined && String(panel.site_id) === form.site_a))
-      .map((panel) => ({ value: panel.value, label: panel.label }));
-    return [...base, ...panels];
-  }, [devices, patchPanelChoices, form.site_a]);
-  const deviceBChoices = useMemo(() => {
-    const base = devices
-      .filter((dev) => !form.site_b || (dev.site_id !== null && dev.site_id !== undefined && String(dev.site_id) === form.site_b))
-      .map((dev) => ({ value: `device:${dev.id}`, label: dev.name }));
-    const panels = patchPanelChoices
-      .filter((panel) => !form.site_b || (panel.site_id !== null && panel.site_id !== undefined && String(panel.site_id) === form.site_b))
-      .map((panel) => ({ value: panel.value, label: panel.label }));
-    return [...base, ...panels];
-  }, [devices, patchPanelChoices, form.site_b]);
+  const patchPanels = useMemo(() => devices.filter((device) => device.role === "patchpanel"), [devices]);
 
-  const endpointLabel = (type: string, id: number) => {
-    const opt = optionByKey[`${type}:${id}`];
-    if (!opt) return `${type}:${id}`;
-    if (opt.type === "interface") {
-      return `${opt.site_name ? `[${opt.site_name}] ` : ""}${opt.device_name || `device-${opt.device_id}`} / ${opt.name}`;
+  const rackChoices = useMemo(() => {
+    return [...racks]
+      .sort((left, right) => {
+        const leftSite = siteById[left.site_id]?.name || "";
+        const rightSite = siteById[right.site_id]?.name || "";
+        return leftSite === rightSite ? left.name.localeCompare(right.name) : leftSite.localeCompare(rightSite);
+      })
+      .map((rack) => ({
+        id: rack.id,
+        label: `${siteById[rack.site_id]?.name || "Ohne Site"} / ${rack.name}`,
+      }));
+  }, [racks, siteById]);
+
+  const endpointLabel = (option: EndpointOption) => {
+    if (option.type === "interface") {
+      return `${option.device_name || `device-${option.device_id}`} / ${option.name}`;
     }
-    return `${opt.site_name ? `[${opt.site_name}] ` : ""}${opt.panel_name || `panel-${opt.panel_id}`} / ${opt.name}`;
+    return `${option.panel_name || `panel-${option.panel_id}`} / ${option.name}`;
   };
+
+  const endpointLabelByKey = (type: string, id: number) => {
+    const option = endpointByKey[`${type}:${id}`];
+    if (!option) return `${type}:${id}`;
+    return endpointLabel(option);
+  };
+
+  const endpointsByDeviceId = useMemo(() => {
+    const grouped = new Map<number, EndpointOption[]>();
+    endpointOptions.forEach((option) => {
+      const deviceId = option.type === "interface" ? option.device_id : option.panel_id;
+      if (!deviceId) return;
+      const current = grouped.get(deviceId) || [];
+      current.push(option);
+      grouped.set(deviceId, current);
+    });
+    grouped.forEach((items, key) => {
+      grouped.set(
+        key,
+        items.sort((left, right) => {
+          return endpointLabel(left).localeCompare(endpointLabel(right));
+        })
+      );
+    });
+    return grouped;
+  }, [endpointOptions]);
+
+  const cableCountByEndpoint = useMemo(() => {
+    const counts: Record<string, number> = {};
+    cables.forEach((cable) => {
+      const left = `${cable.endpoint_a_type}:${cable.endpoint_a_id}`;
+      const right = `${cable.endpoint_b_type}:${cable.endpoint_b_id}`;
+      counts[left] = (counts[left] || 0) + 1;
+      counts[right] = (counts[right] || 0) + 1;
+    });
+    return counts;
+  }, [cables]);
+
+  const devicesForRack = (rackId: RackSelectValue) => {
+    if (rackId === "") return [];
+    return devices
+      .filter((device) => device.rack_id === rackId)
+      .sort((left, right) => left.name.localeCompare(right.name));
+  };
+
+  const rackADevices = useMemo(() => devicesForRack(connectForm.rack_a), [devices, connectForm.rack_a]);
+  const rackBDevices = useMemo(() => devicesForRack(connectForm.rack_b), [devices, connectForm.rack_b]);
 
   const filteredCables = useMemo(() => {
     const q = listFilter.q.trim().toLowerCase();
-    return cables.filter((c) => {
-      if (listFilter.cable_type && c.cable_type !== listFilter.cable_type) return false;
+    return cables.filter((item) => {
+      if (listFilter.cable_type && item.cable_type !== listFilter.cable_type) return false;
       if (!q) return true;
       return (
-        String(c.id).includes(q) ||
-        (c.label || "").toLowerCase().includes(q) ||
-        endpointLabel(c.endpoint_a_type, c.endpoint_a_id).toLowerCase().includes(q) ||
-        endpointLabel(c.endpoint_b_type, c.endpoint_b_id).toLowerCase().includes(q)
+        String(item.id).includes(q) ||
+        (item.label || "").toLowerCase().includes(q) ||
+        endpointLabelByKey(item.endpoint_a_type, item.endpoint_a_id).toLowerCase().includes(q) ||
+        endpointLabelByKey(item.endpoint_b_type, item.endpoint_b_id).toLowerCase().includes(q)
       );
     });
-  }, [cables, listFilter, optionByKey]);
-  const filteredTopologyData = useMemo(() => {
-    const nodeMap = new Map<string, { id: string; label: string }>();
-    const edges = filteredCables.map((c) => {
-      const from = `${c.endpoint_a_type}:${c.endpoint_a_id}`;
-      const to = `${c.endpoint_b_type}:${c.endpoint_b_id}`;
-      nodeMap.set(from, { id: from, label: endpointLabel(c.endpoint_a_type, c.endpoint_a_id) });
-      nodeMap.set(to, { id: to, label: endpointLabel(c.endpoint_b_type, c.endpoint_b_id) });
-      return { id: `cable-${c.id}`, from, to, label: c.label || `${c.cable_type} #${c.id}` };
-    });
-    return { nodes: Array.from(nodeMap.values()), edges };
-  }, [filteredCables, optionByKey]);
+  }, [cables, listFilter, endpointByKey]);
+
   const filteredPatchPorts = useMemo(() => {
     const q = patchFilter.q.trim().toLowerCase();
     return patchPorts.filter((port) => {
@@ -160,38 +140,38 @@ export function CablingPage() {
         String(port.position).includes(q) ||
         port.front_port_name.toLowerCase().includes(q) ||
         port.back_port_name.toLowerCase().includes(q) ||
-        (deviceById[port.panel_id] || "").toLowerCase().includes(q)
+        (deviceById[port.panel_id]?.name || "").toLowerCase().includes(q)
       );
     });
   }, [patchPorts, patchFilter, deviceById]);
 
   const load = async () => {
     try {
-      const [options, cableData, deviceData, siteData, patchPortData] = await Promise.all([
+      const [options, cableData, deviceData, siteData, patchPortData, rackData] = await Promise.all([
         get<EndpointResponse>("/dcim/endpoint-options"),
         get<Cable[]>("/dcim/cables"),
         get<Device[]>("/dcim/devices"),
         get<Site[]>("/dcim/sites"),
         get<PatchPort[]>("/dcim/patch-ports"),
+        get<Rack[]>("/dcim/racks"),
       ]);
-      const merged = [...options.interfaces, ...options.patch_ports];
-      setEndpointOptions(merged);
+      const mergedOptions = [...options.interfaces, ...options.patch_ports];
+      setEndpointOptions(mergedOptions);
       setCables(cableData);
       setDevices(deviceData);
       setSites(siteData);
       setPatchPorts(patchPortData);
-      setPatchPortForm((prev) => ({ ...prev, panel_id: prev.panel_id || deviceData.find((d) => d.role === "patchpanel")?.id || "" }));
-
-      const defaultKey = merged[0] ? `${merged[0].type}:${merged[0].id}` : "";
-      setLookupKey((prev) => prev || defaultKey);
-      setForm((prev) => ({
+      setRacks(rackData);
+      setPatchPortForm((prev) => ({
         ...prev,
-        site_a: prev.site_a || "",
-        device_a: prev.device_a || "",
-        endpoint_a_key: prev.endpoint_a_key || defaultKey,
-        site_b: prev.site_b || "",
-        device_b: prev.device_b || "",
-        endpoint_b_key: prev.endpoint_b_key || (merged[1] ? `${merged[1].type}:${merged[1].id}` : defaultKey),
+        panel_id: prev.panel_id || deviceData.find((d) => d.role === "patchpanel")?.id || "",
+      }));
+
+      const sortedRacks = [...rackData].sort((left, right) => left.name.localeCompare(right.name));
+      setConnectForm((prev) => ({
+        ...prev,
+        rack_a: prev.rack_a || sortedRacks[0]?.id || "",
+        rack_b: prev.rack_b || sortedRacks[1]?.id || sortedRacks[0]?.id || "",
       }));
     } catch (err: unknown) {
       setError(extractApiError(err));
@@ -203,59 +183,60 @@ export function CablingPage() {
     void load();
   }, []);
 
-  useEffect(() => {
-    if (form.endpoint_a_key && !endpointAOptions.some((opt) => `${opt.type}:${opt.id}` === form.endpoint_a_key)) {
-      setForm((prev) => ({ ...prev, endpoint_a_key: "" }));
-    }
-  }, [endpointAOptions, form.endpoint_a_key]);
-
-  useEffect(() => {
-    if (form.endpoint_b_key && !endpointBOptions.some((opt) => `${opt.type}:${opt.id}` === form.endpoint_b_key)) {
-      setForm((prev) => ({ ...prev, endpoint_b_key: "" }));
-    }
-  }, [endpointBOptions, form.endpoint_b_key]);
-
-  const runLookup = async () => {
-    const source = optionByKey[lookupKey];
-    if (!source) return;
-    const data = await get<PathResult>("/dcim/cable-path", {
-      endpoint_type: source.type,
-      endpoint_id: source.id,
-    });
-    setPath(data);
-  };
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    const a = optionByKey[form.endpoint_a_key];
-    const b = optionByKey[form.endpoint_b_key];
-    if (!a || !b) {
-      setError("Bitte fuer beide Seiten ein Endpoint auswaehlen.");
+  const connectEndpoints = async (sourceKey: string, targetKey: string) => {
+    const source = endpointByKey[sourceKey];
+    const target = endpointByKey[targetKey];
+    if (!source || !target) {
+      setError("Bitte gueltige Endpunkte waehlen.");
       setMessage("");
       return;
     }
-    if (a.id === b.id && a.type === b.type) {
+    if (source.id === target.id && source.type === target.type) {
       setError("Start- und Endpunkt duerfen nicht identisch sein.");
+      setMessage("");
       return;
     }
+
     try {
+      setConnecting(true);
       await post("/dcim/cables", {
-        endpoint_a_type: a.type,
-        endpoint_a_id: a.id,
-        endpoint_b_type: b.type,
-        endpoint_b_id: b.id,
-        cable_type: form.cable_type,
-        label: form.label || null,
+        endpoint_a_type: source.type,
+        endpoint_a_id: source.id,
+        endpoint_b_type: target.type,
+        endpoint_b_id: target.id,
+        cable_type: connectForm.cable_type,
+        label: connectForm.label.trim() || null,
         status: "active",
       });
       setMessage("Kabel erstellt.");
       setError("");
+      setDragSourceKey("");
+      setDropTargetKey("");
+      setConnectForm((prev) => ({ ...prev, label: "" }));
       await load();
-      await runLookup();
     } catch (err: unknown) {
       setError(extractApiError(err));
       setMessage("");
+    } finally {
+      setConnecting(false);
     }
+  };
+
+  const handleEndpointClick = (key: string) => {
+    if (!dragSourceKey) {
+      setDragSourceKey(key);
+      return;
+    }
+    if (dragSourceKey === key) {
+      setDragSourceKey("");
+      return;
+    }
+    void connectEndpoints(dragSourceKey, key);
+  };
+
+  const handleEndpointDrop = async (targetKey: string) => {
+    if (!dragSourceKey) return;
+    await connectEndpoints(dragSourceKey, targetKey);
   };
 
   const deleteCable = async (cableId: number) => {
@@ -275,6 +256,7 @@ export function CablingPage() {
     e.preventDefault();
     if (patchPortForm.panel_id === "") {
       setError("Bitte Patchpanel auswaehlen.");
+      setMessage("");
       return;
     }
     try {
@@ -331,93 +313,138 @@ export function CablingPage() {
     }
   };
 
+  const renderRackColumn = (title: string, rackValue: RackSelectValue, onRackChange: (value: RackSelectValue) => void, list: Device[]) => {
+    const rackLabel = rackValue === "" ? "Kein Rack ausgewaehlt" : rackChoices.find((rack) => rack.id === rackValue)?.label || "Rack";
+    return (
+      <div className="card">
+        <div className="mb-3 flex flex-wrap items-end gap-2">
+          <div className="field">
+            <label className="field-label">{title}</label>
+            <select
+              className="input"
+              value={rackValue}
+              onChange={(e) => onRackChange(e.target.value ? Number(e.target.value) : "")}
+            >
+              <option value="">Rack waehlen</option>
+              {rackChoices.map((rack) => (
+                <option key={`${title}-rack-${rack.id}`} value={rack.id}>
+                  {rack.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <p className="text-sm text-slate-600">{rackLabel}</p>
+        </div>
+
+        {rackValue === "" && <p className="text-sm text-slate-500">Bitte ein Rack auswaehlen.</p>}
+
+        {rackValue !== "" && list.length === 0 && (
+          <p className="text-sm text-slate-500">In diesem Rack sind keine Geraete eingetragen.</p>
+        )}
+
+        <div className="space-y-3">
+          {list.map((device) => {
+            const endpoints = endpointsByDeviceId.get(device.id) || [];
+            return (
+              <div key={`${title}-device-${device.id}`} className="rounded-md border border-slate-200 p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-ink">{device.name}</p>
+                  <p className="text-xs text-slate-500">{device.role}</p>
+                </div>
+
+                {endpoints.length === 0 && (
+                  <p className="text-sm text-slate-500">Keine Endpunkte (Interfaces/Patchports) vorhanden.</p>
+                )}
+
+                {endpoints.length > 0 && (
+                  <div className="grid gap-2">
+                    {endpoints.map((option) => {
+                      const key = `${option.type}:${option.id}`;
+                      const isSelected = dragSourceKey === key;
+                      const isDropTarget = dropTargetKey === key;
+                      const cableCount = cableCountByEndpoint[key] || 0;
+                      return (
+                        <button
+                          key={`${title}-endpoint-${key}`}
+                          type="button"
+                          draggable
+                          onDragStart={() => setDragSourceKey(key)}
+                          onDragEnd={() => setDropTargetKey("")}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setDropTargetKey(key);
+                          }}
+                          onDragLeave={() => {
+                            setDropTargetKey((prev) => (prev === key ? "" : prev));
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            void handleEndpointDrop(key);
+                          }}
+                          onClick={() => handleEndpointClick(key)}
+                          className={`flex items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors ${
+                            isSelected
+                              ? "border-brand bg-green-50 text-ink"
+                              : isDropTarget
+                                ? "border-amber-400 bg-amber-50 text-ink"
+                                : "border-slate-200 bg-white text-ink hover:bg-slate-50"
+                          }`}
+                          disabled={connecting}
+                        >
+                          <span>{option.name}</span>
+                          <span className="text-xs text-slate-500">{cableCount > 0 ? `belegt (${cableCount})` : "frei"}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
-      <PageHeader title="Cabling" subtitle="Kabel zwischen Interfaces und Patchports mit Path-Ansicht" />
-      <form className="card flex flex-wrap items-end gap-2" onSubmit={submit}>
-        <div>
-          <label className="muted">Site A</label>
-          <select className="input ml-2" value={form.site_a} onChange={(e) => setForm({ ...form, site_a: e.target.value, device_a: "", endpoint_a_key: "" })}>
-            <option value="">alle</option>
-            {siteChoices.map((s) => (
-              <option key={`site-a-${s.id}`} value={String(s.id)}>{s.name}</option>
-            ))}
+      <PageHeader title="Verkabelung" subtitle="Rack auswaehlen, Endpunkt ziehen und auf Ziel-Endpunkt ablegen." />
+
+      <div className="card grid gap-3 md:grid-cols-3">
+        <div className="field">
+          <label className="field-label" htmlFor="cable-type">Kabeltyp</label>
+          <select
+            id="cable-type"
+            className="input"
+            value={connectForm.cable_type}
+            onChange={(e) => setConnectForm((prev) => ({ ...prev, cable_type: e.target.value }))}
+          >
+            <option value="cat6">cat6</option>
+            <option value="fiber">fiber</option>
+            <option value="dac">dac</option>
           </select>
         </div>
-        <div>
-          <label className="muted">Geraet/Panel A</label>
-          <select className="input ml-2" value={form.device_a} onChange={(e) => setForm({ ...form, device_a: e.target.value, endpoint_a_key: "" })}>
-            <option value="">alle</option>
-            {deviceAChoices.map((d) => (
-              <option key={`dev-a-${d.value}`} value={d.value}>{d.label}</option>
-            ))}
-          </select>
+        <div className="field md:col-span-2">
+          <label className="field-label" htmlFor="cable-label">Kabel-Label (optional)</label>
+          <input
+            id="cable-label"
+            className="input"
+            value={connectForm.label}
+            onChange={(e) => setConnectForm((prev) => ({ ...prev, label: e.target.value }))}
+            placeholder="z. B. Uplink R1-R2"
+          />
         </div>
-        <div>
-          <label className="muted">Endpoint A</label>
-          <select className="input ml-2" value={form.endpoint_a_key} onChange={(e) => setForm({ ...form, endpoint_a_key: e.target.value })}>
-            <option value="">bitte waehlen</option>
-            {endpointAOptions.map((opt) => (
-              <option key={`a-${opt.type}-${opt.id}`} value={`${opt.type}:${opt.id}`}>
-                {opt.type === "interface"
-                  ? `${opt.site_name ? `[${opt.site_name}] ` : ""}${opt.device_name || `device-${opt.device_id}`} / ${opt.name}`
-                  : `${opt.site_name ? `[${opt.site_name}] ` : ""}${opt.panel_name || `panel-${opt.panel_id}`} / ${opt.name}`}
-              </option>
-            ))}
-          </select>
-          {endpointAOptions.length === 0 && <div className="muted mt-1 text-xs">Keine Endpunkte fuer die Auswahl vorhanden.</div>}
-        </div>
-        <div>
-          <label className="muted">Site B</label>
-          <select className="input ml-2" value={form.site_b} onChange={(e) => setForm({ ...form, site_b: e.target.value, device_b: "", endpoint_b_key: "" })}>
-            <option value="">alle</option>
-            {siteChoices.map((s) => (
-              <option key={`site-b-${s.id}`} value={String(s.id)}>{s.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="muted">Geraet/Panel B</label>
-          <select className="input ml-2" value={form.device_b} onChange={(e) => setForm({ ...form, device_b: e.target.value, endpoint_b_key: "" })}>
-            <option value="">alle</option>
-            {deviceBChoices.map((d) => (
-              <option key={`dev-b-${d.value}`} value={d.value}>{d.label}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="muted">Endpoint B</label>
-          <select className="input ml-2" value={form.endpoint_b_key} onChange={(e) => setForm({ ...form, endpoint_b_key: e.target.value })}>
-            <option value="">bitte waehlen</option>
-            {endpointBOptions.map((opt) => (
-              <option key={`b-${opt.type}-${opt.id}`} value={`${opt.type}:${opt.id}`}>
-                {opt.type === "interface"
-                  ? `${opt.site_name ? `[${opt.site_name}] ` : ""}${opt.device_name || `device-${opt.device_id}`} / ${opt.name}`
-                  : `${opt.site_name ? `[${opt.site_name}] ` : ""}${opt.panel_name || `panel-${opt.panel_id}`} / ${opt.name}`}
-              </option>
-            ))}
-          </select>
-          {endpointBOptions.length === 0 && <div className="muted mt-1 text-xs">Keine Endpunkte fuer die Auswahl vorhanden.</div>}
-        </div>
-        <input className="input" value={form.cable_type} onChange={(e) => setForm({ ...form, cable_type: e.target.value })} placeholder="cat6/fiber/dac" />
-        <input className="input" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="Label" />
-        <button className="btn" type="submit">Kabel anlegen</button>
-      </form>
+        <p className="md:col-span-3 text-sm text-slate-600">
+          Bedienung: Endpunkt anklicken oder ziehen, dann auf den Ziel-Endpunkt klicken/ablegen. Ein erneuter Klick auf den selben Endpunkt hebt die Auswahl auf.
+        </p>
+      </div>
 
       {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
       {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
 
-      <div className="card flex flex-wrap gap-2">
-        <select className="input" value={lookupKey} onChange={(e) => setLookupKey(e.target.value)}>
-          {endpointOptions.map((opt) => (
-            <option key={`lookup-${opt.type}-${opt.id}`} value={`${opt.type}:${opt.id}`}>
-              {opt.type === "interface"
-                ? `${opt.site_name ? `[${opt.site_name}] ` : ""}${opt.device_name || `device-${opt.device_id}`} / ${opt.name}`
-                : `${opt.site_name ? `[${opt.site_name}] ` : ""}${opt.panel_name || `panel-${opt.panel_id}`} / ${opt.name}`}
-            </option>
-          ))}
-        </select>
-        <button type="button" className="btn" onClick={() => void runLookup()}>Pfad anzeigen</button>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {renderRackColumn("Rack A", connectForm.rack_a, (value) => setConnectForm((prev) => ({ ...prev, rack_a: value })), rackADevices)}
+        {renderRackColumn("Rack B", connectForm.rack_b, (value) => setConnectForm((prev) => ({ ...prev, rack_b: value })), rackBDevices)}
       </div>
 
       <div className="card overflow-x-auto">
@@ -426,12 +453,14 @@ export function CablingPage() {
             className="input"
             value={listFilter.q}
             onChange={(e) => setListFilter((prev) => ({ ...prev, q: e.target.value }))}
-            placeholder="Filter ID/Label/Endpoint"
+            placeholder="Filter ID, Label oder Endpunkt"
           />
           <select className="input" value={listFilter.cable_type} onChange={(e) => setListFilter((prev) => ({ ...prev, cable_type: e.target.value }))}>
             <option value="">alle Kabeltypen</option>
-            {Array.from(new Set(cables.map((c) => c.cable_type))).sort().map((type) => (
-              <option key={type} value={type}>{type}</option>
+            {Array.from(new Set(cables.map((cable) => cable.cable_type))).sort().map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
             ))}
           </select>
           <button type="button" className="btn-secondary" onClick={() => setListFilter({ q: "", cable_type: "" })}>
@@ -440,43 +469,43 @@ export function CablingPage() {
         </div>
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b text-left"><th className="p-2">ID</th><th className="p-2">A</th><th className="p-2">B</th><th className="p-2">Type</th><th className="p-2">Label</th><th className="p-2">Aktionen</th></tr>
+            <tr className="border-b text-left">
+              <th className="p-2">ID</th>
+              <th className="p-2">Endpunkt A</th>
+              <th className="p-2">Endpunkt B</th>
+              <th className="p-2">Typ</th>
+              <th className="p-2">Label</th>
+              <th className="p-2">Aktionen</th>
+            </tr>
           </thead>
           <tbody>
-            {filteredCables.map((c) => (
-              <tr key={c.id} className="border-b">
-                <td className="p-2">{c.id}</td>
-                <td className="p-2">{endpointLabel(c.endpoint_a_type, c.endpoint_a_id)}</td>
-                <td className="p-2">{endpointLabel(c.endpoint_b_type, c.endpoint_b_id)}</td>
-                <td className="p-2">{c.cable_type}</td>
-                <td className="p-2">{c.label || "-"}</td>
+            {filteredCables.map((cable) => (
+              <tr key={cable.id} className="border-b">
+                <td className="p-2">{cable.id}</td>
+                <td className="p-2">{endpointLabelByKey(cable.endpoint_a_type, cable.endpoint_a_id)}</td>
+                <td className="p-2">{endpointLabelByKey(cable.endpoint_b_type, cable.endpoint_b_id)}</td>
+                <td className="p-2">{cable.cable_type}</td>
+                <td className="p-2">{cable.label || "-"}</td>
                 <td className="p-2">
-                  <button type="button" className="btn-danger px-2 py-1 text-xs" onClick={() => void deleteCable(c.id)}>Loeschen</button>
+                  <button type="button" className="btn-danger px-2 py-1 text-xs" onClick={() => void deleteCable(cable.id)}>
+                    Loeschen
+                  </button>
                 </td>
               </tr>
             ))}
+            {filteredCables.length === 0 && (
+              <tr>
+                <td className="p-3 text-sm text-slate-500" colSpan={6}>
+                  Keine Kabel gefunden.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
 
-      {filteredTopologyData.nodes.length > 0 && (
-        <div className="card">
-          <h3 className="mb-2 text-lg font-semibold">Cable Topology</h3>
-          <CableTopologyGraph nodes={filteredTopologyData.nodes} edges={filteredTopologyData.edges} />
-        </div>
-      )}
-
-      {path && (
-        <>
-          <CablePathGraph nodes={path.nodes} edges={path.edges} />
-          <div className="card overflow-x-auto">
-            <table className="w-full text-sm"><thead><tr className="border-b"><th className="p-2 text-left">From</th><th className="p-2 text-left">To</th><th className="p-2 text-left">Cable</th></tr></thead><tbody>{path.table.map((r, i) => <tr key={`${r.cable_id}-${i}`} className="border-b"><td className="p-2">{r.from}</td><td className="p-2">{r.to}</td><td className="p-2">{r.cable_id}</td></tr>)}</tbody></table>
-          </div>
-        </>
-      )}
-
       <div className="card space-y-2">
-        <h3 className="text-lg font-semibold">Patchpanel Ports</h3>
+        <h2 className="text-lg font-semibold text-ink">Patchpanel Ports</h2>
         <form className="flex flex-wrap items-end gap-2" onSubmit={submitPatchPort}>
           <select
             className="input"
@@ -485,7 +514,9 @@ export function CablingPage() {
           >
             <option value="">Patchpanel waehlen</option>
             {patchPanels.map((panel) => (
-              <option key={`panel-${panel.id}`} value={panel.id}>{panel.name}</option>
+              <option key={`panel-${panel.id}`} value={panel.id}>
+                {panel.name}
+              </option>
             ))}
           </select>
           <input
@@ -502,14 +533,18 @@ export function CablingPage() {
             <input type="checkbox" checked={patchPortForm.allow_multi} onChange={(e) => setPatchPortForm({ ...patchPortForm, allow_multi: e.target.checked })} />
             allow_multi
           </label>
-          <button className="btn" type="submit">{editingPatchPortId ? "Port speichern" : "Port anlegen"}</button>
+          <button className="btn" type="submit">
+            {editingPatchPortId ? "Port speichern" : "Port anlegen"}
+          </button>
         </form>
         <div className="flex flex-wrap gap-2">
           <input className="input" value={patchFilter.q} onChange={(e) => setPatchFilter((prev) => ({ ...prev, q: e.target.value }))} placeholder="Filter Port/Panel" />
           <select className="input" value={patchFilter.panel_id} onChange={(e) => setPatchFilter((prev) => ({ ...prev, panel_id: e.target.value ? Number(e.target.value) : "" }))}>
             <option value="">alle Panels</option>
             {patchPanels.map((panel) => (
-              <option key={`filter-panel-${panel.id}`} value={panel.id}>{panel.name}</option>
+              <option key={`filter-panel-${panel.id}`} value={panel.id}>
+                {panel.name}
+              </option>
             ))}
           </select>
           <button type="button" className="btn-secondary" onClick={() => setPatchFilter({ q: "", panel_id: "" })}>
@@ -533,17 +568,28 @@ export function CablingPage() {
               {filteredPatchPorts.map((port) => (
                 <tr key={port.id} className="border-b">
                   <td className="p-2">{port.id}</td>
-                  <td className="p-2">{deviceById[port.panel_id] || `panel-${port.panel_id}`}</td>
+                  <td className="p-2">{deviceById[port.panel_id]?.name || `panel-${port.panel_id}`}</td>
                   <td className="p-2">{port.position}</td>
                   <td className="p-2">{port.front_port_name}</td>
                   <td className="p-2">{port.back_port_name}</td>
                   <td className="p-2">{port.allow_multi ? "yes" : "no"}</td>
                   <td className="p-2">
-                    <button type="button" className="btn-secondary mr-2 px-2 py-1 text-xs" onClick={() => startEditPatchPort(port)}>Bearbeiten</button>
-                    <button type="button" className="btn-danger px-2 py-1 text-xs" onClick={() => void deletePatchPort(port.id)}>Loeschen</button>
+                    <button type="button" className="btn-secondary mr-2 px-2 py-1 text-xs" onClick={() => startEditPatchPort(port)}>
+                      Bearbeiten
+                    </button>
+                    <button type="button" className="btn-danger px-2 py-1 text-xs" onClick={() => void deletePatchPort(port.id)}>
+                      Loeschen
+                    </button>
                   </td>
                 </tr>
               ))}
+              {filteredPatchPorts.length === 0 && (
+                <tr>
+                  <td className="p-3 text-sm text-slate-500" colSpan={7}>
+                    Keine Patchports gefunden.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
