@@ -120,9 +120,9 @@ export function PrefixesPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Prefixes"
-        subtitle="Schnelles Anlegen, Filtern und direkte Bearbeitung in der Tabelle"
-        meta={`${filteredItems.length} von ${items.length} Prefixen`}
+        title="Netzbereiche"
+        subtitle="Hier werden zusammenhaengende Netzbereiche (CIDR) verwaltet."
+        meta={`${filteredItems.length} von ${items.length} Eintraegen sichtbar`}
       />
       <form className="card grid gap-3 md:grid-cols-4" onSubmit={onSubmit}>
         <div className="field md:col-span-2">
@@ -149,7 +149,7 @@ export function PrefixesPage() {
           </select>
         </div>
         <div className="field">
-          <label className="field-label" htmlFor="prefix-role">Role</label>
+          <label className="field-label" htmlFor="prefix-role">Nutzung</label>
           <select
             id="prefix-role"
             className="input"
@@ -162,8 +162,8 @@ export function PrefixesPage() {
           </select>
         </div>
         <div className="md:col-span-4 flex flex-wrap items-center gap-2">
-          <button className="btn" type="submit">Prefix anlegen</button>
-          <p className="field-hint">Enter speichert direkt.</p>
+          <button className="btn" type="submit">Netzbereich speichern</button>
+          <p className="field-hint">Beispiel: 10.10.0.0/24</p>
         </div>
       </form>
       {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
@@ -173,7 +173,7 @@ export function PrefixesPage() {
           className="input"
           value={filters.q}
           onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))}
-          placeholder="Suche CIDR/Role"
+          placeholder="Suche CIDR/Nutzung"
         />
         <select className="input" value={filters.vrf_id} onChange={(e) => setFilters((prev) => ({ ...prev, vrf_id: e.target.value ? Number(e.target.value) : "" }))}>
           <option value="">alle VRFs</option>
@@ -182,7 +182,7 @@ export function PrefixesPage() {
           ))}
         </select>
         <select className="input" value={filters.role} onChange={(e) => setFilters((prev) => ({ ...prev, role: e.target.value }))}>
-          <option value="">alle Roles</option>
+          <option value="">alle Nutzungen</option>
           {roleOptions.map((role) => (
             <option key={role} value={role}>{role}</option>
           ))}
@@ -208,7 +208,7 @@ export function PrefixesPage() {
             <tr className="border-b text-left">
               <th className="p-2">CIDR</th>
               <th className="p-2">VRF</th>
-              <th className="p-2">Role</th>
+              <th className="p-2">Nutzung</th>
               <th className="p-2">Status</th>
               <th className="p-2">Aktionen</th>
             </tr>
@@ -301,9 +301,9 @@ export function PrefixesPage() {
       {detail && (
         <div className="card space-y-3">
           <div className="flex gap-2">
-            <button className="btn" onClick={() => setTab("overview")}>Overview</button>
-            <button className="btn" onClick={() => setTab("ips")}>IPs</button>
-            <button className="btn" onClick={() => setTab("history")}>History</button>
+            <button className={tab === "overview" ? "btn" : "btn-secondary"} onClick={() => setTab("overview")}>Uebersicht</button>
+            <button className={tab === "ips" ? "btn" : "btn-secondary"} onClick={() => setTab("ips")}>Adressen</button>
+            <button className={tab === "history" ? "btn" : "btn-secondary"} onClick={() => setTab("history")}>Aenderungen</button>
           </div>
           {tab === "overview" && (
             <div className="grid gap-2 md:grid-cols-4">

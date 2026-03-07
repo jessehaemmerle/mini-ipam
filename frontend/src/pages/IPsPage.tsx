@@ -253,9 +253,9 @@ export function IPsPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="IP Addresses"
-        subtitle="Assignments, Reservierungen und DNS-Name"
-        meta={`${filteredItems.length} von ${items.length} IPs`}
+        title="IP-Adressen"
+        subtitle="Einzelne IPs speichern, zuweisen und reservieren."
+        meta={`${filteredItems.length} von ${items.length} Eintraegen sichtbar`}
       />
       <form onSubmit={submit} className="card grid gap-3 md:grid-cols-6">
         <div className="field md:col-span-2">
@@ -277,7 +277,7 @@ export function IPsPage() {
           )}
         </div>
         <div className="field md:col-span-2">
-          <label className="field-label" htmlFor="ip-dns">DNS Name</label>
+          <label className="field-label" htmlFor="ip-dns">DNS-Name</label>
           <input id="ip-dns" className="input" value={form.dns_name} onChange={(e) => setForm({ ...form, dns_name: e.target.value })} placeholder="server01.example.local" />
         </div>
         <div className="field">
@@ -322,7 +322,7 @@ export function IPsPage() {
           )}
         </div>
         <div className="field md:col-span-2">
-          <label className="field-label" htmlFor="ip-assign-type">Zuweisung</label>
+          <label className="field-label" htmlFor="ip-assign-type">Zuordnung</label>
           <select
             id="ip-assign-type"
             className="input"
@@ -362,6 +362,10 @@ export function IPsPage() {
         </div>
       </form>
       <form onSubmit={submitBulkReserve} className="card grid gap-3 md:grid-cols-4">
+        <div className="md:col-span-4">
+          <h2 className="text-lg font-semibold text-ink">IP-Bereich reservieren</h2>
+          <p className="mt-1 text-sm text-slate-600">Mehrere zusammenhaengende IP-Adressen in einem Schritt anlegen.</p>
+        </div>
         <div className="field">
           <label className="field-label" htmlFor="bulk-start-ip">Start-IP</label>
           <input id="bulk-start-ip" className="input" value={bulkForm.start_ip} onChange={(e) => setBulkForm({ ...bulkForm, start_ip: e.target.value })} placeholder="10.10.0.100" />
@@ -385,7 +389,7 @@ export function IPsPage() {
           className="input"
           value={filters.q}
           onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))}
-          placeholder="Suche IP/DNS/Geraet"
+          placeholder="Suche IP, DNS oder Geraet"
         />
         <select className="input" value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}>
           <option value="">alle Status</option>
@@ -414,10 +418,10 @@ export function IPsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left">
-              <th className="p-2">Address</th>
+              <th className="p-2">IP-Adresse</th>
               <th className="p-2">Status</th>
               <th className="p-2">DNS</th>
-              <th className="p-2">Assignment</th>
+              <th className="p-2">Zuordnung</th>
               <th className="p-2">Aktionen</th>
             </tr>
           </thead>

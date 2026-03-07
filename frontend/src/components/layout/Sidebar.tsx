@@ -10,20 +10,38 @@ type SidebarProps = {
 
 export function Sidebar({ mobileOpen, onClose, onToggle }: SidebarProps) {
   const { labels } = useSettings();
-  const nav = [
-    [labels.nav.dashboard, "/"],
-    [labels.nav.prefixes, "/ipam/prefixes"],
-    [labels.nav.ips, "/ipam/ips"],
-    [labels.nav.vrfs, "/ipam/vrfs"],
-    [labels.nav.vlans, "/vlans"],
-    [labels.nav.sites, "/sites"],
-    [labels.nav.racks, "/racks"],
-    [labels.nav.devices, "/devices"],
-    [labels.nav.cabling, "/cabling"],
-    [labels.nav.power, "/power"],
-    [labels.nav.reports, "/reports"],
-    [labels.nav.admin, "/admin"],
-    [labels.nav.settings, "/settings"],
+  const navSections: Array<{ title: string; items: Array<[string, string]> }> = [
+    {
+      title: "Start",
+      items: [[labels.nav.dashboard, "/"]],
+    },
+    {
+      title: "IP-Management",
+      items: [
+        [labels.nav.prefixes, "/ipam/prefixes"],
+        [labels.nav.ips, "/ipam/ips"],
+        [labels.nav.vrfs, "/ipam/vrfs"],
+        [labels.nav.vlans, "/vlans"],
+      ],
+    },
+    {
+      title: "Infrastruktur",
+      items: [
+        [labels.nav.sites, "/sites"],
+        [labels.nav.racks, "/racks"],
+        [labels.nav.devices, "/devices"],
+        [labels.nav.cabling, "/cabling"],
+        [labels.nav.power, "/power"],
+      ],
+    },
+    {
+      title: "System",
+      items: [
+        [labels.nav.reports, "/reports"],
+        [labels.nav.admin, "/admin"],
+        [labels.nav.settings, "/settings"],
+      ],
+    },
   ];
 
   return (
@@ -48,28 +66,31 @@ export function Sidebar({ mobileOpen, onClose, onToggle }: SidebarProps) {
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="mb-6 rounded-lg bg-ink p-3 text-white">
-          <h1 className="text-lg font-bold">mini-ipam</h1>
-          <p className="text-xs text-slate-300">IPAM-first DCIM</p>
+        <div className="mb-4 border-b border-slate-200 pb-3">
+          <p className="text-base font-semibold text-ink">mini-ipam</p>
+          <p className="mt-1 text-sm text-slate-600">Navigation</p>
         </div>
-        <nav className="space-y-1">
-          {nav.map(([label, to]) => (
-            <NavLink
-              key={to}
-              to={to}
-              onClick={onClose}
-              className={({ isActive }) =>
-                `block rounded-md px-3 py-2 text-sm transition-colors ${
-                  isActive
-                    ? "bg-brand text-white"
-                    : "text-slate-700 hover:bg-slate-100"
-                }`
-              }
-            >
-              {label}
-            </NavLink>
+        <div className="space-y-4">
+          {navSections.map((section) => (
+            <nav key={section.title} className="space-y-1" aria-label={section.title}>
+              <p className="px-1 text-sm font-medium text-slate-500">{section.title}</p>
+              {section.items.map(([label, to]) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    `block rounded-md px-3 py-2 text-sm transition-colors ${
+                      isActive ? "bg-brand text-white" : "text-slate-700 hover:bg-slate-100"
+                    }`
+                  }
+                >
+                  {label}
+                </NavLink>
+              ))}
+            </nav>
           ))}
-        </nav>
+        </div>
       </aside>
     </>
   );

@@ -44,10 +44,10 @@ const STORAGE_LANG_KEY = "mini_ipam_language";
 const LABELS: Record<Language, Labels> = {
   de: {
     nav: {
-      dashboard: "Dashboard",
-      prefixes: "Prefixe",
-      ips: "IPs",
-      vrfs: "VRFs",
+      dashboard: "Start",
+      prefixes: "Netzbereiche",
+      ips: "IP-Adressen",
+      vrfs: "Netzraeume (VRF)",
       vlans: "VLANs",
       sites: "Standorte",
       racks: "Racks",
@@ -70,10 +70,10 @@ const LABELS: Record<Language, Labels> = {
   },
   en: {
     nav: {
-      dashboard: "Dashboard",
-      prefixes: "Prefixes",
-      ips: "IPs",
-      vrfs: "VRFs",
+      dashboard: "Home",
+      prefixes: "Network Prefixes",
+      ips: "IP Addresses",
+      vrfs: "Network Scopes (VRF)",
       vlans: "VLANs",
       sites: "Sites",
       racks: "Racks",
