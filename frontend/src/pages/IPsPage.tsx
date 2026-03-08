@@ -33,7 +33,8 @@ export function IPsPage() {
   const [items, setItems] = useState<IPAddress[]>([]);
   const [vrfs, setVrfs] = useState<Vrf[]>([]);
   const [prefixes, setPrefixes] = useState<Prefix[]>([]);
-  const [filters, setFilters] = useState({ q: "", status: "", assigned: "" as "" | "assigned" | "unassigned" });
+  const [filters, setFilters] = useState({ q: "", status: "" });
+  const [entryMode, setEntryMode] = useState<"single" | "range">("single");
   const [form, setForm] = useState({
     address: "",
     vrf_id: 1,
@@ -68,9 +69,6 @@ export function IPsPage() {
     const q = filters.q.trim().toLowerCase();
     return items.filter((item) => {
       if (filters.status && item.status !== filters.status) return false;
-      const isAssigned = !!item.assigned_type && !!item.assigned_id;
-      if (filters.assigned === "assigned" && !isAssigned) return false;
-      if (filters.assigned === "unassigned" && isAssigned) return false;
       if (!q) return true;
       return item.address.toLowerCase().includes(q) || (item.dns_name || "").toLowerCase().includes(q);
     });
@@ -199,7 +197,17 @@ export function IPsPage() {
   return (
     <div className="space-y-4">
       <PageHeader title="IP-Adressen" subtitle="Einzelne IPs speichern oder Bereiche reservieren." meta={`${filteredItems.length} von ${items.length} Eintraegen sichtbar`} />
-      <form onSubmit={submit} className="card grid gap-3 md:grid-cols-6">
+      <div className="card">
+        <div className="mb-3 flex flex-wrap gap-2">
+          <button type="button" className={entryMode === "single" ? "btn" : "btn-secondary"} onClick={() => setEntryMode("single")}>
+            Einzelne IP
+          </button>
+          <button type="button" className={entryMode === "range" ? "btn" : "btn-secondary"} onClick={() => setEntryMode("range")}>
+            IP-Bereich
+          </button>
+        </div>
+        {entryMode === "single" ? (
+          <form onSubmit={submit} className="grid gap-3 md:grid-cols-6">
         <div className="field md:col-span-2">
           <label className="field-label" htmlFor="ip-address">IP-Adresse</label>
           <input id="ip-address" className="input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="10.10.0.12" />
@@ -236,12 +244,12 @@ export function IPsPage() {
         <div className="flex items-end">
           <button className="btn w-full md:w-auto" type="submit" disabled={saving || !vrfs.length}>{saving ? "Speichert..." : "IP speichern"}</button>
         </div>
-      </form>
-
-      <form onSubmit={submitBulkReserve} className="card grid gap-3 md:grid-cols-4">
-        <div className="md:col-span-4">
-          <h2 className="text-lg font-semibold text-ink">IP-Bereich reservieren</h2>
-        </div>
+          </form>
+        ) : (
+          <form onSubmit={submitBulkReserve} className="grid gap-3 md:grid-cols-4">
+            <div className="md:col-span-4">
+              <h2 className="text-lg font-semibold text-ink">IP-Bereich reservieren</h2>
+            </div>
         <div className="field">
           <label className="field-label" htmlFor="bulk-start-ip">Start-IP</label>
           <input id="bulk-start-ip" className="input" value={bulkForm.start_ip} onChange={(e) => setBulkForm({ ...bulkForm, start_ip: e.target.value })} placeholder="10.10.0.100" />
@@ -257,7 +265,9 @@ export function IPsPage() {
         <div className="flex items-end">
           <button className="btn w-full md:w-auto" type="submit">Bereich reservieren</button>
         </div>
-      </form>
+          </form>
+        )}
+      </div>
 
       {message && <div className="card border border-green-200 bg-green-50 text-sm text-green-800">{message}</div>}
       {error && <div className="card border border-red-200 bg-red-50 text-sm text-red-800">{error}</div>}
@@ -268,12 +278,7 @@ export function IPsPage() {
           <option value="">alle Status</option>
           {Array.from(new Set(items.map((item) => item.status))).sort().map((status) => <option key={status} value={status}>{status}</option>)}
         </select>
-        <select className="input" value={filters.assigned} onChange={(e) => setFilters((prev) => ({ ...prev, assigned: e.target.value as "" | "assigned" | "unassigned" }))}>
-          <option value="">alle Zuweisungen</option>
-          <option value="assigned">zugewiesen</option>
-          <option value="unassigned">nicht zugewiesen</option>
-        </select>
-        <button type="button" className="btn-secondary" onClick={() => setFilters({ q: "", status: "", assigned: "" })}>Filter zuruecksetzen</button>
+        <button type="button" className="btn-secondary" onClick={() => setFilters({ q: "", status: "" })}>Filter zuruecksetzen</button>
       </div>
 
       <div className="card overflow-x-auto">

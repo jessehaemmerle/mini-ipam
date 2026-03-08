@@ -1,4 +1,5 @@
 import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -94,7 +95,12 @@ export function VRFsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Netzraeume (VRF)" subtitle="Trennt Netzbereiche logisch, damit gleiche IP-Bereiche mehrfach verwendet werden koennen." />
+      <PageHeader
+        title="Netzraeume (VRF)"
+        subtitle="Trennt Netzbereiche logisch, damit gleiche IP-Bereiche mehrfach verwendet werden koennen."
+        meta={`${filteredItems.length} von ${items.length} Eintraegen sichtbar`}
+        actions={<Link className="btn-secondary" to="/ipam/prefixes">Weiter zu Prefixes</Link>}
+      />
       <form className="card grid gap-3 md:grid-cols-3" onSubmit={submit}>
         <div className="field md:col-span-2">
           <label htmlFor="vrf-name" className="field-label">VRF Name</label>

@@ -1,4 +1,5 @@
 import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -123,6 +124,7 @@ export function PrefixesPage() {
         title="Netzbereiche"
         subtitle="Hier werden zusammenhaengende Netzbereiche (CIDR) verwaltet."
         meta={`${filteredItems.length} von ${items.length} Eintraegen sichtbar`}
+        actions={<Link className="btn-secondary" to="/ipam/ips">Weiter zu IP-Adressen</Link>}
       />
       <form className="card grid gap-3 md:grid-cols-4" onSubmit={onSubmit}>
         <div className="field md:col-span-2">
@@ -217,8 +219,7 @@ export function PrefixesPage() {
             {filteredItems.map((item) => (
               <Fragment key={item.id}>
                 <tr
-                  className={`border-b cursor-pointer ${selectedId === item.id ? "bg-amber-50" : ""}`}
-                  onClick={() => loadDetail(item.id)}
+                  className={`border-b ${selectedId === item.id ? "bg-amber-50" : ""}`}
                 >
                   <td className="p-2 font-semibold">{item.cidr}</td>
                   <td className="p-2">{item.vrf_id}</td>
@@ -229,8 +230,7 @@ export function PrefixesPage() {
                       {editingId === item.id ? (
                         <button
                           className="btn-secondary px-2 py-1 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation();
+                          onClick={() => {
                             setEditingId(null);
                           }}
                         >
@@ -239,18 +239,19 @@ export function PrefixesPage() {
                       ) : (
                         <button
                           className="btn-secondary px-2 py-1 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation();
+                          onClick={() => {
                             startEdit(item);
                           }}
                         >
                           Bearbeiten
                         </button>
                       )}
+                      <button className="btn-secondary px-2 py-1 text-xs" onClick={() => loadDetail(item.id)}>
+                        Details
+                      </button>
                       <button
                         className="btn-danger px-2 py-1 text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
+                        onClick={() => {
                           void deletePrefix(item);
                         }}
                       >

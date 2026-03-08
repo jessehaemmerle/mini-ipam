@@ -108,8 +108,8 @@ export function GlobalSearchPanel() {
         dns_name: item.dns_name || null,
         description: item.description || null,
         out_of_scope: item.out_of_scope || false,
-        assigned_type: item.assigned_type || null,
-        assigned_id: item.assigned_id || null,
+        assigned_type: null,
+        assigned_id: null,
       });
       await runSearch();
       setMessage(`IP ${item.address} auf ${status} gesetzt.`);
@@ -137,6 +137,19 @@ export function GlobalSearchPanel() {
         />
         <button className="btn" type="button" onClick={() => void runSearch()} disabled={loading}>
           {loading ? "Suche laeuft..." : "Suchen"}
+        </button>
+        <button
+          className="btn-secondary"
+          type="button"
+          onClick={() => {
+            setQuery("");
+            setResult(EMPTY_RESULT);
+            setSearched(false);
+            setMessage("");
+            setError("");
+          }}
+        >
+          Leeren
         </button>
       </div>
 

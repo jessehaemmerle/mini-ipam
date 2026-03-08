@@ -1,4 +1,5 @@
 import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { del, extractApiError, get, post, put } from "../api/client";
 import { PageHeader } from "../components/common/PageHeader";
@@ -94,7 +95,12 @@ export function VLANsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="VLANs" subtitle="VLANs verwalten und Konflikte vermeiden." />
+      <PageHeader
+        title="VLANs"
+        subtitle="VLANs verwalten und Konflikte vermeiden."
+        meta={`${filteredItems.length} von ${items.length} Eintraegen sichtbar`}
+        actions={<Link className="btn-secondary" to="/ipam/ips">Weiter zu IP-Adressen</Link>}
+      />
       <form className="card grid gap-3 md:grid-cols-4" onSubmit={submit}>
         <div className="field">
           <label className="field-label" htmlFor="vlan-vid">VLAN-ID</label>

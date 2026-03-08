@@ -26,9 +26,19 @@ export function DashboardPage() {
     <div className="space-y-4">
       <PageHeader
         title="Startseite"
-        subtitle="Nutze diese Reihenfolge fuer eine schnelle und saubere Einrichtung."
+        subtitle="Starte mit den Schnellaktionen oder folge dem empfohlenen Ablauf."
         meta={`${Object.keys(stats).length} Kennzahlen verfuegbar`}
       />
+
+      <div className="card">
+        <h2 className="text-lg font-semibold text-ink">Schnellaktionen</h2>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link className="btn" to="/ipam/vrfs">VRF anlegen</Link>
+          <Link className="btn-secondary" to="/ipam/prefixes">Prefix anlegen</Link>
+          <Link className="btn-secondary" to="/ipam/ips">IP anlegen</Link>
+          <Link className="btn-secondary" to="/vlans">VLAN anlegen</Link>
+        </div>
+      </div>
 
       <div className="card">
         <h2 className="text-lg font-semibold text-ink">Empfohlene Reihenfolge</h2>
