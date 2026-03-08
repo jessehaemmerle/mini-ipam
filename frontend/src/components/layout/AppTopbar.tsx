@@ -11,7 +11,7 @@ const ROUTES: Array<{ match: (path: string) => boolean; meta: RouteMeta }> = [
     match: (path) => path === "/",
     meta: {
       title: "Startseite",
-      step: "Schritt 1 von 4: Grundlagen anlegen",
+      step: "IPAM Uebersicht",
       next: { to: "/ipam/vrfs", label: "Weiter: Netzraeume" },
     },
   },
@@ -19,7 +19,7 @@ const ROUTES: Array<{ match: (path: string) => boolean; meta: RouteMeta }> = [
     match: (path) => path.startsWith("/ipam/vrfs"),
     meta: {
       title: "Netzraeume (VRF)",
-      step: "Schritt 1 von 4: Netzraum definieren",
+      step: "Schritt 1 von 3: Netzraum definieren",
       next: { to: "/ipam/prefixes", label: "Weiter: Netzbereiche" },
     },
   },
@@ -27,7 +27,7 @@ const ROUTES: Array<{ match: (path: string) => boolean; meta: RouteMeta }> = [
     match: (path) => path.startsWith("/ipam/prefixes"),
     meta: {
       title: "Netzbereiche",
-      step: "Schritt 2 von 4: CIDR-Bereiche erfassen",
+      step: "Schritt 2 von 3: CIDR-Bereiche erfassen",
       next: { to: "/ipam/ips", label: "Weiter: IP-Adressen" },
     },
   },
@@ -35,31 +35,8 @@ const ROUTES: Array<{ match: (path: string) => boolean; meta: RouteMeta }> = [
     match: (path) => path.startsWith("/ipam/ips"),
     meta: {
       title: "IP-Adressen",
-      step: "Schritt 3 von 4: Adressen reservieren oder zuweisen",
-      next: { to: "/devices", label: "Weiter: Geraete pflegen" },
-    },
-  },
-  {
-    match: (path) => path.startsWith("/devices"),
-    meta: {
-      title: "Geraete",
-      step: "Schritt 4 von 4: Infrastruktur verknuepfen",
-      next: { to: "/cabling", label: "Weiter: Verkabelung" },
-    },
-  },
-  {
-    match: (path) => path.startsWith("/cabling"),
-    meta: {
-      title: "Verkabelung",
-      step: "Infrastruktur: Verbindungen herstellen",
-      next: { to: "/reports", label: "Weiter: Qualitaetspruefung" },
-    },
-  },
-  {
-    match: (path) => path.startsWith("/reports"),
-    meta: {
-      title: "Auswertungen",
-      step: "Pruefung: Datenqualitaet und Konflikte",
+      step: "Schritt 3 von 3: Adressen verwalten",
+      next: { to: "/vlans", label: "Weiter: VLANs" },
     },
   },
 ];

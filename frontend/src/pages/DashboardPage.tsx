@@ -52,9 +52,9 @@ export function DashboardPage() {
             </Link>
           </li>
           <li>
-            4. Danach Infrastruktur pflegen:{" "}
-            <Link className="font-semibold text-brand hover:underline" to="/devices">
-              Zur Seite Geraete
+            4. VLANs erfassen:{" "}
+            <Link className="font-semibold text-brand hover:underline" to="/vlans">
+              Zur Seite VLANs
             </Link>
           </li>
         </ol>
@@ -88,7 +88,7 @@ export function DashboardPage() {
 
       <div className="card">
         <h2 className="text-lg font-semibold text-ink">Direkt suchen</h2>
-        <p className="mt-1 text-sm text-slate-600">Finde Prefixe, IPs, VLANs, Geraete, Racks und Kabel ueber ein zentrales Suchfeld.</p>
+        <p className="mt-1 text-sm text-slate-600">Finde Prefixe, IPs und VLANs ueber ein zentrales Suchfeld.</p>
         <GlobalSearchPanel />
       </div>
     </div>

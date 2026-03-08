@@ -1,27 +1,19 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { del, extractApiError, get, put } from "../../api/client";
+import { extractApiError, get, put } from "../../api/client";
 
 type SearchBucket<T = Record<string, unknown>> = T[];
 type SearchResult = {
   prefixes: SearchBucket;
   ips: SearchBucket;
   vlans: SearchBucket;
-  devices: SearchBucket;
-  racks: SearchBucket;
-  cables: SearchBucket;
-  patch_ports?: SearchBucket;
 };
 
 const EMPTY_RESULT: SearchResult = {
   prefixes: [],
   ips: [],
   vlans: [],
-  devices: [],
-  racks: [],
-  cables: [],
-  patch_ports: [],
 };
 
 function valueToString(value: unknown): string {
@@ -57,30 +49,6 @@ const GROUPS: GroupConfig[] = [
     to: "/vlans",
     rowText: (item) => `${valueToString(item.vid)} - ${valueToString(item.name)}`,
   },
-  {
-    key: "devices",
-    title: "Geraete",
-    to: "/devices",
-    rowText: (item) => valueToString(item.name),
-  },
-  {
-    key: "racks",
-    title: "Racks",
-    to: "/racks",
-    rowText: (item) => valueToString(item.name),
-  },
-  {
-    key: "cables",
-    title: "Kabel",
-    to: "/cabling",
-    rowText: (item) => `#${valueToString(item.id)} ${valueToString(item.label)}`,
-  },
-  {
-    key: "patch_ports",
-    title: "Patchports",
-    to: "/cabling",
-    rowText: (item) => `${valueToString(item.front_port_name)} / ${valueToString(item.back_port_name)}`,
-  },
 ];
 
 export function GlobalSearchPanel() {
@@ -96,11 +64,7 @@ export function GlobalSearchPanel() {
     return (
       result.prefixes.length +
       result.ips.length +
-      result.vlans.length +
-      result.devices.length +
-      result.racks.length +
-      result.cables.length +
-      (result.patch_ports?.length || 0)
+      result.vlans.length
     );
   }, [result]);
 
@@ -156,19 +120,6 @@ export function GlobalSearchPanel() {
     }
   };
 
-  const deleteCable = async (item: Record<string, unknown>) => {
-    if (!window.confirm(`Kabel #${item.id} wirklich loeschen?`)) return;
-    try {
-      await del(`/dcim/cables/${item.id}`);
-      await runSearch();
-      setMessage(`Kabel #${item.id} geloescht.`);
-      setError("");
-    } catch (err: unknown) {
-      setError(extractApiError(err));
-      setMessage("");
-    }
-  };
-
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
@@ -182,7 +133,7 @@ export function GlobalSearchPanel() {
               void runSearch();
             }
           }}
-          placeholder="Suche nach IP, Netzwerk, VLAN, Geraet, Rack oder Kabel"
+          placeholder="Suche nach IP, Netzwerk oder VLAN"
         />
         <button className="btn" type="button" onClick={() => void runSearch()} disabled={loading}>
           {loading ? "Suche laeuft..." : "Suchen"}
@@ -235,11 +186,6 @@ export function GlobalSearchPanel() {
                               Als reserviert
                             </button>
                           </>
-                        )}
-                        {group.key === "cables" && (
-                          <button type="button" className="btn-danger px-2 py-1 text-xs" onClick={() => void deleteCable(item)}>
-                            Kabel loeschen
-                          </button>
                         )}
                       </div>
                     </div>

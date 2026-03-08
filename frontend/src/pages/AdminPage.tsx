@@ -28,7 +28,7 @@ export function AdminPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Administration" subtitle="Anmelden, global suchen und CSV-Daten importieren/exportieren." />
+      <PageHeader title="Administration" subtitle="Anmelden sowie CSV-Daten importieren/exportieren." />
 
       <form className="card grid gap-3 md:grid-cols-3" onSubmit={submitLogin}>
         <div className="md:col-span-3">
@@ -49,7 +49,7 @@ export function AdminPage() {
 
       <div className="card">
         <h2 className="text-lg font-semibold text-ink">Globale Suche</h2>
-        <p className="mt-1 text-sm text-slate-600">Schneller Zugriff auf alle Objekttypen inklusive direkter Aktionen.</p>
+        <p className="mt-1 text-sm text-slate-600">Schneller Zugriff auf Prefixe, IPs und VLANs inklusive direkter Aktionen.</p>
         <div className="mt-3">
           <GlobalSearchPanel />
         </div>

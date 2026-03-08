@@ -10,12 +10,6 @@ type Labels = {
     ips: string;
     vrfs: string;
     vlans: string;
-    sites: string;
-    racks: string;
-    devices: string;
-    cabling: string;
-    power: string;
-    reports: string;
     admin: string;
     settings: string;
   };
@@ -49,12 +43,6 @@ const LABELS: Record<Language, Labels> = {
       ips: "IP-Adressen",
       vrfs: "Netzraeume (VRF)",
       vlans: "VLANs",
-      sites: "Standorte",
-      racks: "Racks",
-      devices: "Geraete",
-      cabling: "Verkabelung",
-      power: "Strom",
-      reports: "Reports",
       admin: "Admin",
       settings: "Einstellungen",
     },
@@ -75,12 +63,6 @@ const LABELS: Record<Language, Labels> = {
       ips: "IP Addresses",
       vrfs: "Network Scopes (VRF)",
       vlans: "VLANs",
-      sites: "Sites",
-      racks: "Racks",
-      devices: "Devices",
-      cabling: "Cabling",
-      power: "Power",
-      reports: "Reports",
       admin: "Admin",
       settings: "Settings",
     },

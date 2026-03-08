@@ -82,7 +82,7 @@ export function PrefixesPage() {
       await put(`/ipam/prefixes/${item.id}`, {
         cidr: editForm.cidr.trim(),
         vrf_id: item.vrf_id,
-        site_id: item.site_id ?? null,
+        site_id: null,
         role: editForm.role.trim(),
         status: item.status,
         description: item.description ?? null,

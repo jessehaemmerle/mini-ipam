@@ -16,7 +16,7 @@ export function Sidebar({ mobileOpen, onClose, onToggle }: SidebarProps) {
       items: [[labels.nav.dashboard, "/"]],
     },
     {
-      title: "1. Netzwerk aufbauen",
+      title: "IPAM",
       items: [
         [labels.nav.prefixes, "/ipam/prefixes"],
         [labels.nav.ips, "/ipam/ips"],
@@ -25,19 +25,8 @@ export function Sidebar({ mobileOpen, onClose, onToggle }: SidebarProps) {
       ],
     },
     {
-      title: "2. Infrastruktur erfassen",
+      title: "Verwaltung",
       items: [
-        [labels.nav.sites, "/sites"],
-        [labels.nav.racks, "/racks"],
-        [labels.nav.devices, "/devices"],
-        [labels.nav.cabling, "/cabling"],
-        [labels.nav.power, "/power"],
-      ],
-    },
-    {
-      title: "3. Pruefen & Verwalten",
-      items: [
-        [labels.nav.reports, "/reports"],
         [labels.nav.admin, "/admin"],
         [labels.nav.settings, "/settings"],
       ],

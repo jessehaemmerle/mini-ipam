@@ -68,7 +68,7 @@ export function VLANsPage() {
       await put(`/ipam/vlans/${item.id}`, {
         vid,
         name: editForm.name.trim(),
-        site_id: item.site_id ?? null,
+        site_id: null,
         status: item.status,
         description: null,
       });
@@ -94,7 +94,7 @@ export function VLANsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="VLANs" subtitle="VLANs je Standort verwalten und Konflikte vermeiden." />
+      <PageHeader title="VLANs" subtitle="VLANs verwalten und Konflikte vermeiden." />
       <form className="card grid gap-3 md:grid-cols-4" onSubmit={submit}>
         <div className="field">
           <label className="field-label" htmlFor="vlan-vid">VLAN-ID</label>

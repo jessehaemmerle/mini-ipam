@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, dcim, ipam, reports, search, system
+from app.api.routes import auth, ipam, search
 from app.core.config import settings
 
 app = FastAPI(title="mini-ipam", version="0.1.0")
@@ -18,10 +18,7 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(ipam.router, prefix="/api")
-app.include_router(dcim.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
-app.include_router(reports.router, prefix="/api")
-app.include_router(system.router, prefix="/api")
 
 
 @app.on_event("startup")
